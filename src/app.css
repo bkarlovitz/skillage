@@ -218,8 +218,7 @@ input::placeholder { color: var(--text-subtle); }
   font-size: 13px;
 }
 
-.content-grid { display: grid; grid-template-columns: minmax(640px, 1fr) minmax(380px, .72fr); gap: 18px; align-items: start; }
-.table-layout { align-items: stretch; }
+.inventory-table-page { display: grid; }
 .table-panel {
   min-width: 0;
   overflow: hidden;
@@ -345,6 +344,8 @@ input::placeholder { color: var(--text-subtle); }
   font-weight: 700;
 }
 
+.detail-page { display: grid; gap: 14px; max-width: 1120px; }
+.back-button { width: fit-content; }
 .detail,
 .panel {
   border: 1px solid var(--border-subtle);
@@ -354,6 +355,7 @@ input::placeholder { color: var(--text-subtle); }
   box-shadow: var(--shadow-md);
 }
 .detail-header { display: flex; gap: 18px; align-items: start; justify-content: space-between; margin-bottom: 20px; }
+.full-detail { padding: 26px; }
 .detail-header h2 { margin-top: 8px; }
 .detail-header p { margin-bottom: 0; }
 .detail-kicker { display: flex; align-items: center; gap: 8px; color: var(--text-subtle); font-size: 12px; }
@@ -361,6 +363,9 @@ input::placeholder { color: var(--text-subtle); }
 .meta div { border: 1px solid var(--border-subtle); background: var(--surface-muted); border-radius: var(--radius-md); padding: 10px; }
 dd { margin: 4px 0 0; word-break: break-word; color: var(--text); font-size: 13px; }
 .detail-section { border-top: 1px solid var(--border-subtle); padding-top: 18px; margin-top: 18px; }
+.detail-empty { display: grid; gap: 4px; max-width: 720px; }
+.detail-empty strong { color: var(--text); }
+.detail-empty span { color: var(--text-muted); }
 .issues { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
 .issues li { display: grid; gap: 3px; border-radius: var(--radius-md); background: var(--surface-muted); padding: 10px; font-size: 13px; }
 .issues .error strong { color: var(--danger); }

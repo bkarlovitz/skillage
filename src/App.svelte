@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { findSkillById } from './lib/detail';
   import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
   import { sampleItems } from './lib/sampleData';
   import { paginate, sortSkillItems, type SortDirection, type SortKey } from './lib/table';
@@ -14,7 +15,7 @@
   let selectedId = $state(sampleItems[0]?.id ?? '');
   let query = $state('');
   let target = $state<'all' | SkillTarget>('all');
-  let mode = $state<'inventory' | 'create' | 'research'>('inventory');
+  let mode = $state<'inventory' | 'detail' | 'create' | 'research'>('inventory');
   let scanRootPath = $state('');
   let scanStatus = $state('');
   let advancedScanOpen = $state(false);
@@ -33,7 +34,7 @@
   const sorted = $derived(sortSkillItems(filtered, sortKey, sortDirection));
   const pageResult = $derived(paginate(sorted, { page, pageSize }));
   const visibleRows = $derived(pageResult.rows);
-  const selected = $derived(sorted.find((item) => item.id === selectedId) ?? visibleRows[0] ?? sorted[0]);
+  const selected = $derived(findSkillById(items, selectedId));
   const issueCount = $derived(items.reduce((total, item) => total + item.issues.length, 0));
   const targetCounts = $derived(items.reduce<Record<string, number>>((counts, item) => {
     counts[item.target] = (counts[item.target] ?? 0) + 1;
@@ -42,6 +43,10 @@
 
   function selectItem(id: string) {
     selectedId = id;
+    mode = 'detail';
+  }
+
+  function backToInventory() {
     mode = 'inventory';
   }
 
@@ -182,7 +187,7 @@
     </div>
 
     <nav class="tabs" aria-label="Primary">
-      <button class:active={mode === 'inventory'} onclick={() => (mode = 'inventory')}>Inventory</button>
+      <button class:active={mode === 'inventory' || mode === 'detail'} onclick={backToInventory}>Inventory</button>
       <button class:active={mode === 'create'} onclick={() => (mode = 'create')}>Create</button>
       <button class:active={mode === 'research'} onclick={() => (mode = 'research')}>Product notes</button>
     </nav>
@@ -256,7 +261,7 @@
 
       {#if scanStatus}<p class="status-line">{scanStatus}</p>{/if}
 
-      <section class="content-grid table-layout">
+      <section class="inventory-table-page">
         <section class="table-panel" aria-label="Skill inventory">
           <div class="table-toolbar">
             <div>
@@ -299,9 +304,9 @@
               </thead>
               <tbody>
                 {#each visibleRows as item (item.id)}
-                  <tr class:selected={selected?.id === item.id}>
+                  <tr>
                     <td>
-                      <button class="table-name-button" aria-current={selected?.id === item.id ? 'true' : undefined} onclick={() => selectItem(item.id)}>
+                      <button class="table-name-button" onclick={() => selectItem(item.id)} aria-label={`Open details for ${item.name}`}>
                         <strong>{item.name}</strong>
                         <span>{item.description}</span>
                       </button>
@@ -337,9 +342,12 @@
             </div>
           </div>
         </section>
-
-        <article class="detail">
-          {#if selected}
+      </section>
+    {:else if mode === 'detail'}
+      <section class="detail-page">
+        <button class="button ghost back-button" onclick={backToInventory}>← Back to inventory</button>
+        {#if selected}
+          <article class="detail full-detail">
             <div class="detail-header">
               <div>
                 <div class="detail-kicker"><span class="badge large">{selected.target}</span><span>{selected.kind}</span></div>
@@ -349,7 +357,7 @@
               <button class="button ghost" onclick={() => navigator.clipboard?.writeText(selected.path)}>Copy path</button>
             </div>
 
-            <dl class="meta">
+            <dl class="meta detail-meta">
               <div><dt>Kind</dt><dd>{selected.kind}</dd></div>
               <div><dt>Scope</dt><dd>{selected.scope}</dd></div>
               <div><dt>Entry</dt><dd>{selected.entryFile ?? 'single file'}</dd></div>
@@ -373,10 +381,13 @@
               <h3>Body preview</h3>
               <pre>{selected.body}</pre>
             </section>
-          {:else}
-            <div class="empty">Select a skill or rule to inspect it.</div>
-          {/if}
-        </article>
+          </article>
+        {:else}
+          <div class="empty detail-empty">
+            <strong>Skill not found.</strong>
+            <span>The selected skill may have disappeared after a scan. Return to the inventory and choose another asset.</span>
+          </div>
+        {/if}
       </section>
     {:else if mode === 'create'}
       <section class="panel create-panel">
