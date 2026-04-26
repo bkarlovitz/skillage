@@ -45,4 +45,4 @@ alwaysApply: false
   }
 ];
 
-export const sampleItems: SkillItem[] = parseVirtualFiles(sampleFiles).map((item) => ({ ...item, scope: 'sample' }));
+export const sampleItems: SkillItem[] = parseVirtualFiles(sampleFiles).map((item) => ({ ...item, scope: 'sample', origin: 'sample' }));

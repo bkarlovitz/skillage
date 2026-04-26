@@ -208,7 +208,16 @@ input::placeholder { color: var(--text-subtle); }
   margin-bottom: 14px;
   box-shadow: var(--shadow-sm);
 }
-.filters { grid-template-columns: 1fr; }
+.filters { grid-template-columns: minmax(0, 1fr) auto; }
+.toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.toggle-field input { width: auto; box-shadow: none; }
 .status-line {
   margin: -2px 0 14px;
   border-radius: var(--radius-sm);
@@ -275,10 +284,12 @@ input::placeholder { color: var(--text-subtle); }
 .inventory-table tbody tr:hover { background: var(--surface-hover); }
 .inventory-table tbody tr.selected { background: var(--accent-soft); }
 .inventory-table tbody tr:last-child td { border-bottom: 0; }
-.name-column { width: 31%; }
-.target-column { width: 126px; }
-.kind-column { width: 86px; }
-.scope-column { width: 92px; }
+.name-column { width: 27%; }
+.target-column { width: 118px; }
+.kind-column { width: 104px; }
+.scope-column { width: 98px; }
+.origin-column { width: 96px; }
+.category-column { width: 112px; }
 .issues-column { width: 76px; }
 .path-column { width: auto; }
 .sort-header {

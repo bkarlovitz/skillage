@@ -53,7 +53,7 @@ Instructions`
 
   it('parses Hermes SKILL.md files before generic Claude-style detection', () => {
     const item = parseSkillFile({
-      path: '~/.hermes/skills/debugging/SKILL.md',
+      path: '/home/karlo/.hermes/skills/debugging/SKILL.md',
       content: `---
 name: debugging
 description: Debug failures systematically
@@ -62,6 +62,30 @@ Instructions`
     });
     expect(item?.target).toBe('hermes');
     expect(item?.kind).toBe('skill');
+    expect(item?.scope).toBe('global');
+    expect(item?.origin).toBe('user');
+  });
+
+  it('does not misclassify Hermes bundled skills or Codex temporary plugin skills as Claude project skills', () => {
+    const hermes = parseSkillFile({
+      path: '/home/karlo/.hermes/hermes-agent/skills/research/arxiv/SKILL.md',
+      content: `---
+name: arxiv
+description: Search arXiv papers
+---
+Instructions`
+    });
+    const codex = parseSkillFile({
+      path: '/home/karlo/.codex/.tmp/plugins/plugins/build-macos-apps/skills/appkit-interop/SKILL.md',
+      content: `---
+name: appkit-interop
+description: Build AppKit integrations
+---
+Instructions`
+    });
+
+    expect(hermes).toMatchObject({ target: 'hermes', kind: 'skill', scope: 'bundled', origin: 'bundled', category: 'research' });
+    expect(codex).toMatchObject({ target: 'codex', kind: 'plugin-skill', scope: 'temporary', origin: 'temporary', container: 'build-macos-apps' });
   });
 
   it('parses Claude CLAUDE.md instructions', () => {

@@ -1,6 +1,6 @@
 import type { SkillItem } from './types';
 
-export type SortKey = 'name' | 'target' | 'kind' | 'scope' | 'issues' | 'path';
+export type SortKey = 'name' | 'target' | 'kind' | 'scope' | 'origin' | 'category' | 'issues' | 'path';
 export type SortDirection = 'asc' | 'desc';
 
 export interface PaginationState {

@@ -16,13 +16,24 @@ interface VirtualFile {
 
 function isInteresting(filePath: string): boolean {
   const normalized = filePath.replaceAll(path.sep, '/');
+  const lower = normalized.toLowerCase();
   const basename = path.basename(filePath);
   return basename === 'SKILL.md'
     || basename === 'CLAUDE.md'
+    || basename === 'CLAUDE.local.md'
     || basename === 'AGENTS.md'
+    || basename === 'AGENTS.override.md'
+    || basename === 'SOUL.md'
+    || basename === 'TOOLS.md'
+    || basename === 'MEMORY.md'
     || basename === '.cursorrules'
-    || (normalized.includes('/.cursor/rules/') && basename.endsWith('.mdc'))
-    || (normalized.includes('/.openclaw/') && basename.endsWith('.md'));
+    || basename === 'hooks.json'
+    || basename === 'openclaw.json'
+    || (basename === 'config.toml' && lower.includes('/.codex/'))
+    || (normalized.includes('/.cursor/rules/') && (basename.endsWith('.mdc') || basename.endsWith('.md')))
+    || (normalized.includes('/.openclaw/') && basename.endsWith('.md'))
+    || (normalized.includes('/.claude/rules/') && basename.endsWith('.md'))
+    || (normalized.includes('/.codex/rules/') && basename.endsWith('.rules'));
 }
 
 function scanRoot(root: string): VirtualFile[] {
@@ -66,11 +77,14 @@ function scanRoot(root: string): VirtualFile[] {
 function standardRoots(): string[] {
   const home = os.homedir();
   return [
-    path.join(home, '.claude', 'skills'),
-    path.join(home, '.claude', 'plugins'),
+    path.join(home, '.claude'),
     path.join(home, '.hermes', 'skills'),
     path.join(home, '.hermes', 'hermes-agent', 'skills'),
+    path.join(home, '.hermes', 'hermes-agent', 'optional-skills'),
     path.join(home, '.codex'),
+    path.join(home, '.agents'),
+    path.join(home, '.openclaw'),
+    '/etc/codex',
     process.cwd()
   ].filter((candidate, index, all) => fs.existsSync(candidate) && all.indexOf(candidate) === index);
 }

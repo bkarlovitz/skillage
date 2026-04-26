@@ -19,13 +19,24 @@ struct DiscoveredFile {
 fn is_interesting(path: &Path) -> bool {
     let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
     let normalized = path.to_string_lossy().replace('\\', "/");
+    let lower = normalized.to_lowercase();
 
     file_name == "SKILL.md"
         || file_name == "CLAUDE.md"
+        || file_name == "CLAUDE.local.md"
         || file_name == "AGENTS.md"
+        || file_name == "AGENTS.override.md"
+        || file_name == "SOUL.md"
+        || file_name == "TOOLS.md"
+        || file_name == "MEMORY.md"
         || file_name == ".cursorrules"
-        || (normalized.contains("/.cursor/rules/") && file_name.ends_with(".mdc"))
+        || file_name == "hooks.json"
+        || file_name == "openclaw.json"
+        || (file_name == "config.toml" && lower.contains("/.codex/"))
+        || (normalized.contains("/.cursor/rules/") && (file_name.ends_with(".mdc") || file_name.ends_with(".md")))
         || (normalized.contains("/.openclaw/") && file_name.ends_with(".md"))
+        || (normalized.contains("/.claude/rules/") && file_name.ends_with(".md"))
+        || (normalized.contains("/.codex/rules/") && file_name.ends_with(".rules"))
 }
 
 fn should_skip_dir(path: &Path) -> bool {
@@ -60,11 +71,14 @@ fn expand_root(root: &str) -> PathBuf {
 
 fn standard_skill_roots_for_home(home: &Path) -> Vec<PathBuf> {
     vec![
-        home.join(".claude").join("skills"),
-        home.join(".claude").join("plugins"),
+        home.join(".claude"),
         home.join(".hermes").join("skills"),
         home.join(".hermes").join("hermes-agent").join("skills"),
+        home.join(".hermes").join("hermes-agent").join("optional-skills"),
         home.join(".codex"),
+        home.join(".agents"),
+        home.join(".openclaw"),
+        PathBuf::from("/etc/codex"),
     ]
 }
 

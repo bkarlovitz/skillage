@@ -24,11 +24,15 @@
   let pageSize = $state(25);
   let sortKey = $state<SortKey>('name');
   let sortDirection = $state<SortDirection>('asc');
+  let includeInternalArtifacts = $state(false);
   const currentRuntime = runtimeLabel();
 
   const filtered = $derived(items.filter((item) => {
-    const haystack = `${item.name} ${item.description} ${item.path} ${item.body} ${item.target}`.toLowerCase();
-    return (target === 'all' || item.target === target) && haystack.includes(query.toLowerCase());
+    const haystack = `${item.name} ${item.description} ${item.path} ${item.body} ${item.target} ${item.kind} ${item.scope} ${item.origin ?? ''} ${item.category ?? ''} ${item.container ?? ''}`.toLowerCase();
+    const internalArtifact = item.scope === 'cache' || item.scope === 'temporary' || item.origin === 'cache' || item.origin === 'temporary';
+    return (target === 'all' || item.target === target)
+      && (includeInternalArtifacts || !internalArtifact)
+      && haystack.includes(query.toLowerCase());
   }));
 
   const sorted = $derived(sortSkillItems(filtered, sortKey, sortDirection));
@@ -140,6 +144,8 @@
       target: 'claude-code',
       kind: 'skill',
       scope: 'sample',
+      origin: 'sample',
+      category: undefined,
       path: '~/.claude/skills/new-skill/SKILL.md',
       entryFile: 'SKILL.md',
       body: '# New Skill\n\nWrite crisp operational instructions here. Add scripts/references only when needed.',
@@ -247,6 +253,10 @@
           <span>Search</span>
           <input value={query} oninput={(event) => updateQuery(event.currentTarget.value)} placeholder="Search names, paths, descriptions, body..." />
         </label>
+        <label class="toggle-field">
+          <input type="checkbox" bind:checked={includeInternalArtifacts} onchange={() => resetPageAndSelection()} />
+          <span>Include cache/temp artifacts</span>
+        </label>
       </section>
 
       {#if advancedScanOpen}
@@ -286,13 +296,19 @@
                     <button class="sort-header" onclick={() => toggleSort('name')}>Name <span>{sortLabel('name')}</span></button>
                   </th>
                   <th class="target-column" scope="col" aria-sort={ariaSort('target')}>
-                    <button class="sort-header" onclick={() => toggleSort('target')}>Target <span>{sortLabel('target')}</span></button>
+                    <button class="sort-header" onclick={() => toggleSort('target')}>Source <span>{sortLabel('target')}</span></button>
                   </th>
                   <th class="kind-column" scope="col" aria-sort={ariaSort('kind')}>
                     <button class="sort-header" onclick={() => toggleSort('kind')}>Kind <span>{sortLabel('kind')}</span></button>
                   </th>
                   <th class="scope-column" scope="col" aria-sort={ariaSort('scope')}>
                     <button class="sort-header" onclick={() => toggleSort('scope')}>Scope <span>{sortLabel('scope')}</span></button>
+                  </th>
+                  <th class="origin-column" scope="col" aria-sort={ariaSort('origin')}>
+                    <button class="sort-header" onclick={() => toggleSort('origin')}>Origin <span>{sortLabel('origin')}</span></button>
+                  </th>
+                  <th class="category-column" scope="col" aria-sort={ariaSort('category')}>
+                    <button class="sort-header" onclick={() => toggleSort('category')}>Category <span>{sortLabel('category')}</span></button>
                   </th>
                   <th class="issues-column" scope="col" aria-sort={ariaSort('issues')}>
                     <button class="sort-header" onclick={() => toggleSort('issues')}>Issues <span>{sortLabel('issues')}</span></button>
@@ -314,6 +330,8 @@
                     <td><span class="badge">{item.target}</span></td>
                     <td>{item.kind}</td>
                     <td>{item.scope}</td>
+                    <td>{item.origin ?? '—'}</td>
+                    <td>{item.category ?? item.container ?? '—'}</td>
                     <td>
                       {#if item.issues.length}
                         <span class="issue-badge table-issue-badge">{item.issues.length}</span>
@@ -325,7 +343,7 @@
                   </tr>
                 {:else}
                   <tr>
-                    <td colspan="6"><div class="empty table-empty">No matching skills or rules. Clear search or switch source.</div></td>
+                    <td colspan="8"><div class="empty table-empty">No matching skills or rules. Clear search or switch source.</div></td>
                   </tr>
                 {/each}
               </tbody>
@@ -350,7 +368,7 @@
           <article class="detail full-detail">
             <div class="detail-header">
               <div>
-                <div class="detail-kicker"><span class="badge large">{selected.target}</span><span>{selected.kind}</span></div>
+                <div class="detail-kicker"><span class="badge large">{selected.target}</span><span>{selected.kind}</span><span>{selected.scope}</span></div>
                 <h2>{selected.name}</h2>
                 <p>{selected.description}</p>
               </div>
@@ -360,6 +378,9 @@
             <dl class="meta detail-meta">
               <div><dt>Kind</dt><dd>{selected.kind}</dd></div>
               <div><dt>Scope</dt><dd>{selected.scope}</dd></div>
+              <div><dt>Origin</dt><dd>{selected.origin ?? '—'}</dd></div>
+              <div><dt>Category</dt><dd>{selected.category ?? '—'}</dd></div>
+              <div><dt>Container</dt><dd>{selected.container ?? '—'}</dd></div>
               <div><dt>Entry</dt><dd>{selected.entryFile ?? 'single file'}</dd></div>
               <div><dt>Path</dt><dd>{selected.path}</dd></div>
             </dl>
