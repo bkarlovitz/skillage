@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default Skillage desktop permissions. Local scanning uses narrow Rust commands instead of broad filesystem plugin access.","local":true,"windows":["main"],"permissions":["core:default"]}}

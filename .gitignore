@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.*
+
+# Web build output
+dist/
+build/
+.svelte-kit/
+
+# Tauri/Rust build output
+src-tauri/target/
+**/*.rs.bk
+
+# Test/coverage/cache output
+coverage/
+.nyc_output/
+.vitest/
+*.lcov
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment/config/secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+.tmp/
+tmp/
+temp/
+.cache/
