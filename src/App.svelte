@@ -2,9 +2,11 @@
   import { onMount } from 'svelte';
   import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
   import { sampleItems } from './lib/sampleData';
+  import { applyTheme, getStoredTheme, resolveTheme, storeTheme, systemPrefersDark, type ThemePreference } from './lib/theme';
   import type { SkillItem, SkillTarget } from './lib/types';
 
   const targets: Array<'all' | SkillTarget> = ['all', 'claude-code', 'codex', 'hermes', 'openclaw', 'cursor', 'generic'];
+  const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
 
   let items = $state<SkillItem[]>(sampleItems);
   let selectedId = $state(sampleItems[0]?.id ?? '');
@@ -13,6 +15,8 @@
   let mode = $state<'inventory' | 'create' | 'research'>('inventory');
   let scanRootPath = $state('');
   let scanStatus = $state('');
+  let advancedScanOpen = $state(false);
+  let themePreference = $state<ThemePreference>('system');
   const currentRuntime = runtimeLabel();
 
   const filtered = $derived(items.filter((item) => {
@@ -22,10 +26,21 @@
 
   const selected = $derived(filtered.find((item) => item.id === selectedId) ?? filtered[0]);
   const issueCount = $derived(items.reduce((total, item) => total + item.issues.length, 0));
+  const targetCounts = $derived(items.reduce<Record<string, number>>((counts, item) => {
+    counts[item.target] = (counts[item.target] ?? 0) + 1;
+    return counts;
+  }, {}));
 
   function selectItem(id: string) {
     selectedId = id;
     mode = 'inventory';
+  }
+
+  function setTheme(preference: ThemePreference) {
+    themePreference = preference;
+    const resolved = resolveTheme(preference, systemPrefersDark());
+    applyTheme(document.documentElement, resolved);
+    storeTheme(window.localStorage, preference);
   }
 
   async function scanStandard() {
@@ -41,7 +56,7 @@
   }
 
   async function scanNativeRoot() {
-    scanStatus = 'Scanning...';
+    scanStatus = 'Scanning selected root...';
     try {
       const discovered = await scanRoot(scanRootPath.trim());
       items = discovered.length ? discovered : sampleItems;
@@ -73,7 +88,20 @@
   }
 
   onMount(() => {
+    themePreference = getStoredTheme(window.localStorage);
+    applyTheme(document.documentElement, resolveTheme(themePreference, systemPrefersDark()));
+
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = () => {
+      if (themePreference === 'system') {
+        applyTheme(document.documentElement, resolveTheme('system', systemPrefersDark()));
+      }
+    };
+    media?.addEventListener('change', handleSystemThemeChange);
+
     void scanStandard();
+
+    return () => media?.removeEventListener('change', handleSystemThemeChange);
   });
 </script>
 
@@ -85,10 +113,10 @@
 <div class="shell">
   <aside class="sidebar">
     <div class="brand">
-      <div class="mark">S</div>
+      <div class="mark" aria-hidden="true">S</div>
       <div>
         <h1>Skillage</h1>
-        <p>Local-first skill management for coding agents</p>
+        <p>Local-first skill management</p>
       </div>
     </div>
 
@@ -98,62 +126,87 @@
       <button class:active={mode === 'research'} onclick={() => (mode = 'research')}>Product notes</button>
     </nav>
 
-    <label class="field">
-      <span>Search</span>
-      <input bind:value={query} placeholder="name, path, body..." />
-    </label>
+    <section class="sidebar-section" aria-labelledby="sources-heading">
+      <div class="section-heading" id="sources-heading">Sources</div>
+      <button class:active={target === 'all'} class="source-row" onclick={() => (target = 'all')}>
+        <span>All assets</span><strong>{items.length}</strong>
+      </button>
+      {#each targets.filter((option) => option !== 'all') as option}
+        <button class:active={target === option} class="source-row" onclick={() => (target = option)}>
+          <span>{option}</span><strong>{targetCounts[option] ?? 0}</strong>
+        </button>
+      {/each}
+    </section>
 
-    <label class="field">
-      <span>Target</span>
-      <select bind:value={target}>
-        {#each targets as option}
-          <option value={option}>{option}</option>
-        {/each}
-      </select>
-    </label>
+    <section class="sidebar-section compact" aria-label="Summary">
+      <div class="metric-row"><span>Visible</span><strong>{filtered.length}</strong></div>
+      <div class="metric-row"><span>Validation issues</span><strong>{issueCount}</strong></div>
+      <div class="metric-row"><span>License</span><strong>MIT</strong></div>
+    </section>
 
-    <div class="stats">
-      <div><strong>{items.length}</strong><span>assets</span></div>
-      <div><strong>{issueCount}</strong><span>issues</span></div>
-      <div><strong>MIT</strong><span>license</span></div>
-    </div>
+    <section class="sidebar-section compact" aria-label="Appearance">
+      <label class="field">
+        <span>Theme</span>
+        <select bind:value={themePreference} onchange={() => setTheme(themePreference)}>
+          {#each themeOptions as option}
+            <option value={option}>{option}</option>
+          {/each}
+        </select>
+      </label>
+    </section>
 
-    <div class="source-note">
+    <div class="runtime-note">
       <strong>{currentRuntime}</strong>
-      <p>Desktop mode scans through narrow Tauri/Rust commands. Browser dev mode uses a local Vite scanner only for development.</p>
+      <p>Desktop scans use narrow Tauri/Rust commands. Browser dev scans use the local Vite bridge.</p>
     </div>
   </aside>
 
   <main class="main">
     {#if mode === 'inventory'}
-      <section class="toolbar">
+      <section class="topbar">
         <div>
+          <p class="eyebrow">Inventory</p>
           <h2>Detected skills and rules</h2>
-          <p>Normalized view across Claude Code, Codex AGENTS.md, Hermes-style SKILL.md, OpenClaw placeholders, and Cursor rules.</p>
+          <p>Normalized across Claude Code, Codex, Hermes, OpenClaw, Cursor rules, and generic agent files.</p>
         </div>
-        <button class="secondary" onclick={scanStandard}>Scan standard locations</button>
-        <button class="primary" onclick={createSampleSkill}>New draft skill</button>
+        <div class="topbar-actions">
+          <button class="button secondary" onclick={() => (advancedScanOpen = !advancedScanOpen)}>{advancedScanOpen ? 'Hide scan root' : 'Advanced scan'}</button>
+          <button class="button secondary" onclick={scanStandard}>Scan standard locations</button>
+          <button class="button primary" onclick={createSampleSkill}>New draft skill</button>
+        </div>
       </section>
 
-      <section class="scan-panel" aria-label="Local scanner">
-        <label class="field inline">
-          <span>Scan root</span>
-          <input bind:value={scanRootPath} placeholder="/home/you/project, /home/you/.claude, or \\wsl.localhost\\Ubuntu\\home\\you" />
+      <section class="filters" aria-label="Inventory filters">
+        <label class="field search-field">
+          <span>Search</span>
+          <input bind:value={query} placeholder="Search names, paths, descriptions, body..." />
         </label>
-        <button onclick={scanNativeRoot} disabled={!scanRootPath.trim()}>Scan root</button>
-        {#if scanStatus}<p>{scanStatus}</p>{/if}
       </section>
+
+      {#if advancedScanOpen}
+        <section class="scan-panel" aria-label="Local scanner">
+          <label class="field inline">
+            <span>Scan root</span>
+            <input bind:value={scanRootPath} placeholder="/home/you/project, /home/you/.claude, or \\wsl.localhost\\Ubuntu\\home\\you" />
+          </label>
+          <button class="button secondary" onclick={scanNativeRoot} disabled={!scanRootPath.trim()}>Scan root</button>
+        </section>
+      {/if}
+
+      {#if scanStatus}<p class="status-line">{scanStatus}</p>{/if}
 
       <section class="content-grid">
         <div class="list" aria-label="Skill inventory">
           {#each filtered as item (item.id)}
-            <button class:selected={selected?.id === item.id} class="card" onclick={() => selectItem(item.id)}>
-              <span class="pill">{item.target}</span>
-              <h3>{item.name}</h3>
-              <p>{item.description}</p>
-              <small>{item.path}</small>
+            <button class:selected={selected?.id === item.id} class="asset-row" onclick={() => selectItem(item.id)}>
+              <span class="badge">{item.target}</span>
+              <span class="asset-main">
+                <strong>{item.name}</strong>
+                <span>{item.description}</span>
+                <code>{item.path}</code>
+              </span>
               {#if item.issues.length}
-                <span class="issue-badge">{item.issues.length} issue{item.issues.length === 1 ? '' : 's'}</span>
+                <span class="issue-badge">{item.issues.length}</span>
               {/if}
             </button>
           {:else}
@@ -164,43 +217,49 @@
         <article class="detail">
           {#if selected}
             <div class="detail-header">
-              <span class="pill large">{selected.target}</span>
               <div>
+                <div class="detail-kicker"><span class="badge large">{selected.target}</span><span>{selected.kind}</span></div>
                 <h2>{selected.name}</h2>
                 <p>{selected.description}</p>
               </div>
+              <button class="button ghost" onclick={() => navigator.clipboard?.writeText(selected.path)}>Copy path</button>
             </div>
 
             <dl class="meta">
               <div><dt>Kind</dt><dd>{selected.kind}</dd></div>
               <div><dt>Scope</dt><dd>{selected.scope}</dd></div>
-              <div><dt>Path</dt><dd>{selected.path}</dd></div>
               <div><dt>Entry</dt><dd>{selected.entryFile ?? 'single file'}</dd></div>
+              <div><dt>Path</dt><dd>{selected.path}</dd></div>
             </dl>
 
-            <h3>Validation</h3>
-            {#if selected.issues.length}
-              <ul class="issues">
-                {#each selected.issues as issue}
-                  <li class={issue.severity}>{issue.severity}: {issue.message}</li>
-                {/each}
-              </ul>
-            {:else}
-              <p class="ok">No validation issues detected.</p>
-            {/if}
+            <section class="detail-section">
+              <h3>Validation</h3>
+              {#if selected.issues.length}
+                <ul class="issues">
+                  {#each selected.issues as issue}
+                    <li class={issue.severity}><strong>{issue.severity}</strong><span>{issue.message}</span></li>
+                  {/each}
+                </ul>
+              {:else}
+                <p class="ok">No validation issues detected.</p>
+              {/if}
+            </section>
 
-            <h3>Body preview</h3>
-            <pre>{selected.body}</pre>
+            <section class="detail-section">
+              <h3>Body preview</h3>
+              <pre>{selected.body}</pre>
+            </section>
           {:else}
             <div class="empty">Select a skill or rule to inspect it.</div>
           {/if}
         </article>
       </section>
     {:else if mode === 'create'}
-      <section class="panel">
+      <section class="panel create-panel">
+        <p class="eyebrow">Draft workflow</p>
         <h2>Create skill</h2>
         <p>The MVP creates a safe draft object and shows the target file layout. Native writes should go through the Tauri backend with backup + diff preview.</p>
-        <button class="primary" onclick={createSampleSkill}>Create Claude/Hermes-compatible SKILL.md draft</button>
+        <button class="button primary" onclick={createSampleSkill}>Create Claude/Hermes-compatible SKILL.md draft</button>
         <pre>~/.claude/skills/new-skill/SKILL.md
 ---
 name: new-skill
@@ -213,6 +272,7 @@ Operational instructions...</pre>
       </section>
     {:else}
       <section class="panel prose">
+        <p class="eyebrow">Product strategy</p>
         <h2>Research-backed wedge</h2>
         <p><strong>Skillage should not be just a prompt manager.</strong> The high-value wedge is an effective-context inspector, validator, and converter for developer agent instructions.</p>
         <ul>
