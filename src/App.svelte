@@ -2,11 +2,13 @@
   import { onMount } from 'svelte';
   import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
   import { sampleItems } from './lib/sampleData';
+  import { paginate, sortSkillItems, type SortDirection, type SortKey } from './lib/table';
   import { applyTheme, getStoredTheme, resolveTheme, storeTheme, systemPrefersDark, type ThemePreference } from './lib/theme';
   import type { SkillItem, SkillTarget } from './lib/types';
 
   const targets: Array<'all' | SkillTarget> = ['all', 'claude-code', 'codex', 'hermes', 'openclaw', 'cursor', 'generic'];
   const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
+  const pageSizeOptions = [25, 50, 100];
 
   let items = $state<SkillItem[]>(sampleItems);
   let selectedId = $state(sampleItems[0]?.id ?? '');
@@ -17,6 +19,10 @@
   let scanStatus = $state('');
   let advancedScanOpen = $state(false);
   let themePreference = $state<ThemePreference>('system');
+  let page = $state(1);
+  let pageSize = $state(25);
+  let sortKey = $state<SortKey>('name');
+  let sortDirection = $state<SortDirection>('asc');
   const currentRuntime = runtimeLabel();
 
   const filtered = $derived(items.filter((item) => {
@@ -24,7 +30,10 @@
     return (target === 'all' || item.target === target) && haystack.includes(query.toLowerCase());
   }));
 
-  const selected = $derived(filtered.find((item) => item.id === selectedId) ?? filtered[0]);
+  const sorted = $derived(sortSkillItems(filtered, sortKey, sortDirection));
+  const pageResult = $derived(paginate(sorted, { page, pageSize }));
+  const visibleRows = $derived(pageResult.rows);
+  const selected = $derived(sorted.find((item) => item.id === selectedId) ?? visibleRows[0] ?? sorted[0]);
   const issueCount = $derived(items.reduce((total, item) => total + item.issues.length, 0));
   const targetCounts = $derived(items.reduce<Record<string, number>>((counts, item) => {
     counts[item.target] = (counts[item.target] ?? 0) + 1;
@@ -34,6 +43,55 @@
   function selectItem(id: string) {
     selectedId = id;
     mode = 'inventory';
+  }
+
+  function resetPageAndSelection(rows: SkillItem[] = sorted) {
+    page = 1;
+    if (!rows.some((item) => item.id === selectedId)) {
+      selectedId = rows[0]?.id ?? '';
+    }
+  }
+
+  function changeTarget(nextTarget: 'all' | SkillTarget) {
+    target = nextTarget;
+    resetPageAndSelection(items.filter((item) => nextTarget === 'all' || item.target === nextTarget));
+  }
+
+  function updateQuery(value: string) {
+    query = value;
+    page = 1;
+  }
+
+  function sortLabel(key: SortKey) {
+    if (sortKey !== key) return '';
+    return sortDirection === 'asc' ? '↑' : '↓';
+  }
+
+  function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
+    if (sortKey !== key) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  }
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKey = key;
+      sortDirection = key === 'issues' ? 'desc' : 'asc';
+    }
+    page = 1;
+  }
+
+  function goToPage(nextPage: number) {
+    page = Math.min(Math.max(1, nextPage), pageResult.pageCount);
+    const firstVisible = paginate(sorted, { page, pageSize }).rows[0];
+    if (firstVisible) selectedId = firstVisible.id;
+  }
+
+  function updatePageSize(value: string) {
+    pageSize = Number(value);
+    page = 1;
+    selectedId = sorted[0]?.id ?? '';
   }
 
   function setTheme(preference: ThemePreference) {
@@ -49,6 +107,7 @@
       const discovered = await scanStandardLocations();
       items = discovered.length ? discovered : sampleItems;
       selectedId = items[0]?.id ?? '';
+      page = 1;
       scanStatus = discovered.length ? `Loaded ${discovered.length} asset(s) from standard locations.` : 'No local standard-location skills found; restored sample data.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Standard-location scan failed.';
@@ -61,6 +120,7 @@
       const discovered = await scanRoot(scanRootPath.trim());
       items = discovered.length ? discovered : sampleItems;
       selectedId = items[0]?.id ?? '';
+      page = 1;
       scanStatus = discovered.length ? `Loaded ${discovered.length} asset(s).` : 'No matching files found; restored sample data.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Native scan failed.';
@@ -84,6 +144,7 @@
     };
     items = [next, ...items];
     selectedId = next.id;
+    page = 1;
     mode = 'inventory';
   }
 
@@ -128,11 +189,11 @@
 
     <section class="sidebar-section" aria-labelledby="sources-heading">
       <div class="section-heading" id="sources-heading">Sources</div>
-      <button class:active={target === 'all'} class="source-row" onclick={() => (target = 'all')}>
+      <button class:active={target === 'all'} class="source-row" onclick={() => changeTarget('all')}>
         <span>All assets</span><strong>{items.length}</strong>
       </button>
       {#each targets.filter((option) => option !== 'all') as option}
-        <button class:active={target === option} class="source-row" onclick={() => (target = option)}>
+        <button class:active={target === option} class="source-row" onclick={() => changeTarget(option)}>
           <span>{option}</span><strong>{targetCounts[option] ?? 0}</strong>
         </button>
       {/each}
@@ -179,7 +240,7 @@
       <section class="filters" aria-label="Inventory filters">
         <label class="field search-field">
           <span>Search</span>
-          <input bind:value={query} placeholder="Search names, paths, descriptions, body..." />
+          <input value={query} oninput={(event) => updateQuery(event.currentTarget.value)} placeholder="Search names, paths, descriptions, body..." />
         </label>
       </section>
 
@@ -195,24 +256,87 @@
 
       {#if scanStatus}<p class="status-line">{scanStatus}</p>{/if}
 
-      <section class="content-grid">
-        <div class="list" aria-label="Skill inventory">
-          {#each filtered as item (item.id)}
-            <button class:selected={selected?.id === item.id} class="asset-row" onclick={() => selectItem(item.id)}>
-              <span class="badge">{item.target}</span>
-              <span class="asset-main">
-                <strong>{item.name}</strong>
-                <span>{item.description}</span>
-                <code>{item.path}</code>
-              </span>
-              {#if item.issues.length}
-                <span class="issue-badge">{item.issues.length}</span>
-              {/if}
-            </button>
-          {:else}
-            <div class="empty">No matching skills or rules.</div>
-          {/each}
-        </div>
+      <section class="content-grid table-layout">
+        <section class="table-panel" aria-label="Skill inventory">
+          <div class="table-toolbar">
+            <div>
+              <strong>{pageResult.total} asset{pageResult.total === 1 ? '' : 's'}</strong>
+              <span>Showing {pageResult.start}–{pageResult.end} of {pageResult.total}</span>
+            </div>
+            <label class="page-size-control">
+              <span>Rows</span>
+              <select value={pageSize} onchange={(event) => updatePageSize(event.currentTarget.value)}>
+                {#each pageSizeOptions as option}
+                  <option value={option}>{option}</option>
+                {/each}
+              </select>
+            </label>
+          </div>
+
+          <div class="table-scroll" role="region" aria-label="Skill inventory table">
+            <table class="inventory-table">
+              <thead>
+                <tr>
+                  <th class="name-column" scope="col" aria-sort={ariaSort('name')}>
+                    <button class="sort-header" onclick={() => toggleSort('name')}>Name <span>{sortLabel('name')}</span></button>
+                  </th>
+                  <th class="target-column" scope="col" aria-sort={ariaSort('target')}>
+                    <button class="sort-header" onclick={() => toggleSort('target')}>Target <span>{sortLabel('target')}</span></button>
+                  </th>
+                  <th class="kind-column" scope="col" aria-sort={ariaSort('kind')}>
+                    <button class="sort-header" onclick={() => toggleSort('kind')}>Kind <span>{sortLabel('kind')}</span></button>
+                  </th>
+                  <th class="scope-column" scope="col" aria-sort={ariaSort('scope')}>
+                    <button class="sort-header" onclick={() => toggleSort('scope')}>Scope <span>{sortLabel('scope')}</span></button>
+                  </th>
+                  <th class="issues-column" scope="col" aria-sort={ariaSort('issues')}>
+                    <button class="sort-header" onclick={() => toggleSort('issues')}>Issues <span>{sortLabel('issues')}</span></button>
+                  </th>
+                  <th class="path-column" scope="col" aria-sort={ariaSort('path')}>
+                    <button class="sort-header" onclick={() => toggleSort('path')}>Path <span>{sortLabel('path')}</span></button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each visibleRows as item (item.id)}
+                  <tr class:selected={selected?.id === item.id}>
+                    <td>
+                      <button class="table-name-button" aria-current={selected?.id === item.id ? 'true' : undefined} onclick={() => selectItem(item.id)}>
+                        <strong>{item.name}</strong>
+                        <span>{item.description}</span>
+                      </button>
+                    </td>
+                    <td><span class="badge">{item.target}</span></td>
+                    <td>{item.kind}</td>
+                    <td>{item.scope}</td>
+                    <td>
+                      {#if item.issues.length}
+                        <span class="issue-badge table-issue-badge">{item.issues.length}</span>
+                      {:else}
+                        <span class="zero-issues">0</span>
+                      {/if}
+                    </td>
+                    <td><code class="table-path">{item.path}</code></td>
+                  </tr>
+                {:else}
+                  <tr>
+                    <td colspan="6"><div class="empty table-empty">No matching skills or rules. Clear search or switch source.</div></td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination-bar" aria-label="Pagination">
+            <span>Page {pageResult.page} of {pageResult.pageCount}</span>
+            <div class="pagination-controls">
+              <button class="button ghost compact" disabled={pageResult.page <= 1} onclick={() => goToPage(1)}>First</button>
+              <button class="button ghost compact" disabled={pageResult.page <= 1} onclick={() => goToPage(pageResult.page - 1)}>Previous</button>
+              <button class="button ghost compact" disabled={pageResult.page >= pageResult.pageCount} onclick={() => goToPage(pageResult.page + 1)}>Next</button>
+              <button class="button ghost compact" disabled={pageResult.page >= pageResult.pageCount} onclick={() => goToPage(pageResult.pageCount)}>Last</button>
+            </div>
+          </div>
+        </section>
 
         <article class="detail">
           {#if selected}
