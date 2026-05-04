@@ -48,7 +48,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Remove obsolete MVP language that presents authoring, editing, distribution, or cross-machine workflows as current functionality.
   - Validation: review `README.md`, `docs`, and `src` for misleading current-state matches.
 
-- [ ] **Task 8.11**: Complete final manual acceptance pass
+- [x] **Task 8.11**: Complete final manual acceptance pass
   - Walk through the app as a user with no project selected, with a selected project, in each client detail view, and in cross-client view.
   - Verify the app answers where capabilities live, what scope they have, why they appear, what may affect the selected project, and what needs review.
   - Validation: Manual acceptance notes confirm the Machine Inventory, Project Inventory, Cross-Client, Source-Path Clarity, and Safety outcomes from `v1_spec.md`.
