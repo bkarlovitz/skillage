@@ -22,7 +22,7 @@ Demo a cross-client view that groups related capabilities, identifies duplicates
   - Surface shared names, similar descriptions, same source path, and divergent source evidence.
   - Validation: Tests cover identical same-path skill, similar skill, and unrelated same-name instruction.
 
-- [ ] **Task 7.5**: Implement project/global shadowing analysis
+- [x] **Task 7.5**: Implement project/global shadowing analysis
   - Detect project resources that appear to shadow or override global/profile resources only when client-specific precedence rules support it.
   - Use needs-review when precedence is uncertain.
   - Validation: Tests cover supported shadowing, uncertain same-name resource, and no-shadow cases.
