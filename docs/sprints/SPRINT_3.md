@@ -9,7 +9,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Document parser guarantees and caveats in `docs/V1_MODEL.md` or a dedicated parser note.
   - Validation: Parser strategy doc names supported formats, unsupported constructs, and how parse errors appear in inventory.
 
-- [ ] **Task 3.2**: Add shared JSON config parsing with source evidence
+- [x] **Task 3.2**: Add shared JSON config parsing with source evidence
   - Parse JSON files into typed extraction helpers that can report parse errors, key paths, and redacted previews.
   - Preserve original path and parsed key path in evidence.
   - Validation: JSON parser tests cover valid config, malformed config, nested MCP keys, and secret-like fields.
