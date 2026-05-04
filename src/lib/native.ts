@@ -26,6 +26,12 @@ export function runtimeLabel(): string {
   }
 }
 
+export interface ProjectFolderSelection {
+  selectedPath: string;
+  displayName: string;
+  source: 'native-command' | 'browser-dev-manual';
+}
+
 function isLegacyFileArray(payload: unknown): payload is VirtualFile[] {
   return Array.isArray(payload) && payload.every((item) => typeof item === 'object' && item !== null && 'path' in item);
 }
@@ -79,4 +85,28 @@ export async function scanStandardLocations(): Promise<ScanSummary> {
   }
 
   throw new Error('Standard-location scanning requires the Skillage desktop app.');
+}
+
+function displayNameFromPath(path: string): string {
+  const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
+  return normalized.split('/').filter(Boolean).pop() ?? (normalized || 'Selected project');
+}
+
+export async function selectProjectFolder(path: string): Promise<ProjectFolderSelection> {
+  const trimmed = path.trim();
+  if (!trimmed) throw new Error('Enter a project folder path first.');
+
+  if (isTauriRuntime()) {
+    return invoke<ProjectFolderSelection>('select_project_folder', { root: trimmed });
+  }
+
+  if (import.meta.env.DEV) {
+    return {
+      selectedPath: trimmed,
+      displayName: displayNameFromPath(trimmed),
+      source: 'browser-dev-manual'
+    };
+  }
+
+  throw new Error('Project folder selection requires the Skillage desktop app.');
 }

@@ -6,7 +6,7 @@
   import type { ScanSummary } from './lib/inventory/scan';
   import { filterCapabilityResources } from './lib/inventory/tableModel';
   import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
-  import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
+  import { runtimeLabel, scanRoot, scanStandardLocations, selectProjectFolder } from './lib/native';
   import { paginate, sortCapabilityResources, type SortDirection, type SortKey } from './lib/table';
   import { applyTheme, getStoredTheme, resolveTheme, storeTheme, systemPrefersDark, type ThemePreference } from './lib/theme';
 
@@ -28,6 +28,8 @@
   let mode = $state<AppMode>('machine');
   let scanRootPath = $state('');
   let scanStatus = $state('');
+  let projectPath = $state('');
+  let projectSelectionStatus = $state('');
   let advancedScanOpen = $state(false);
   let themePreference = $state<ThemePreference>('system');
   let page = $state(1);
@@ -210,6 +212,26 @@
       scanStatus = summary.resources.length ? `Loaded ${summary.resources.length} asset(s).` : 'No matching capabilities found in the selected root.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Native scan failed.';
+    }
+  }
+
+  async function chooseProjectFolder() {
+    projectSelectionStatus = 'Selecting project folder...';
+    try {
+      const selection = await selectProjectFolder(projectPath);
+      projectPath = selection.selectedPath;
+      activeScanSummary = {
+        ...activeScanSummary,
+        selectedProject: {
+          rootPath: selection.selectedPath,
+          displayName: selection.displayName,
+          trustState: 'unknown'
+        }
+      };
+      mode = 'project';
+      projectSelectionStatus = `Selected ${selection.selectedPath}.`;
+    } catch (error) {
+      projectSelectionStatus = error instanceof Error ? error.message : 'Project selection failed.';
     }
   }
 
@@ -536,6 +558,16 @@
           <p>{activeScanSummary.selectedProject?.rootPath ?? 'Fixture scenarios can include a selected project context; local scans currently show root-level capability matches.'}</p>
         </div>
       </section>
+
+      <section class="scan-panel" aria-label="Project folder selection">
+        <label class="field inline">
+          <span>Project folder</span>
+          <input bind:value={projectPath} placeholder="/home/you/project or \\wsl.localhost\\Ubuntu\\home\\you\\project" />
+        </label>
+        <button class="button secondary" onclick={chooseProjectFolder} disabled={!projectPath.trim()}>Select project</button>
+      </section>
+
+      {#if projectSelectionStatus}<p class="status-line">{projectSelectionStatus}</p>{/if}
 
       <section class="panel">
         <div class="table-toolbar embedded">

@@ -214,6 +214,14 @@ struct ScanSummary {
     warnings: Vec<ScannerWarning>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectFolderSelection {
+    selected_path: String,
+    display_name: String,
+    source: String,
+}
+
 #[derive(Debug, Default, Serialize)]
 struct ScannerRecords {
     resources: Vec<CapabilityResource>,
@@ -799,6 +807,36 @@ fn expand_root(root: &str) -> PathBuf {
     PathBuf::from(root)
 }
 
+fn display_name_for_path(path: &Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("Selected project")
+        .to_string()
+}
+
+fn project_folder_selection(root: &str) -> Result<ProjectFolderSelection, String> {
+    let root = expand_root(root);
+    if !root.exists() {
+        return Err(format!("Project folder does not exist: {}", root.display()));
+    }
+    if !root.is_dir() {
+        return Err(format!("Project selection must be a directory: {}", root.display()));
+    }
+
+    let selected_path = root
+        .canonicalize()
+        .unwrap_or_else(|_| root.clone())
+        .to_string_lossy()
+        .to_string();
+
+    Ok(ProjectFolderSelection {
+        display_name: display_name_for_path(Path::new(&selected_path)),
+        selected_path,
+        source: "native-command".to_string(),
+    })
+}
+
 fn standard_skill_roots_for_home(home: &Path) -> Vec<PathBuf> {
     vec![
         home.join(".claude"),
@@ -1032,10 +1070,15 @@ fn scan_standard_skill_files() -> Result<ScanSummary, String> {
     Ok(summary)
 }
 
+#[tauri::command]
+fn select_project_folder(root: String) -> Result<ProjectFolderSelection, String> {
+    project_folder_selection(&root)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![scan_skill_files, scan_standard_skill_files])
+        .invoke_handler(tauri::generate_handler![scan_skill_files, scan_standard_skill_files, select_project_folder])
         .run(tauri::generate_context!())
         .expect("error while running Skillage");
 }
@@ -1063,6 +1106,33 @@ mod tests {
         assert!(serialized.contains("\"sourcePath\":\"/home/test/repo/AGENTS.md\""));
         assert!(serialized.contains("\"sizeBytes\":42"));
         assert!(!serialized.contains("\"content\""));
+    }
+
+    #[test]
+    fn project_folder_selection_returns_canonical_directory_metadata() {
+        let root = unique_test_dir("project-selection");
+        fs::create_dir_all(&root).expect("create project root");
+
+        let selection = project_folder_selection(root.to_str().expect("utf8 path")).expect("select project");
+
+        assert_eq!(selection.display_name, root.file_name().and_then(|name| name.to_str()).unwrap());
+        assert_eq!(selection.source, "native-command");
+        assert!(PathBuf::from(selection.selected_path).is_dir());
+
+        fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn project_folder_selection_rejects_missing_or_file_paths() {
+        let root = unique_test_dir("project-selection-reject");
+        fs::create_dir_all(&root).expect("create project root");
+        let file = root.join("AGENTS.md");
+        fs::write(&file, "# Instructions").expect("write file");
+
+        assert!(project_folder_selection(file.to_str().expect("utf8 path")).expect_err("file rejected").contains("directory"));
+        assert!(project_folder_selection(root.join("missing").to_str().expect("utf8 path")).expect_err("missing rejected").contains("does not exist"));
+
+        fs::remove_dir_all(root).expect("remove root");
     }
 
     #[test]
