@@ -47,7 +47,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Warn for project MCP servers, hooks, commands, broad permissions, inline secret-like values, executable config, local/private files not visible to collaborators, and shared files likely committed.
   - Validation: Warning tests cover each project risk category.
 
-- [ ] **Task 5.10**: Build the Project Inventory UI
+- [x] **Task 5.10**: Build the Project Inventory UI
   - Add sections for project resources, inherited global/profile resources, local/private resources, shared-with-collaborators metadata, warnings/caveats, and best-effort effective view.
   - Validation: `npm run check` and `npm run build` pass; fixture demo shows a project with inherited global MCP and a project-scoped warning.
 

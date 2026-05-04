@@ -60,6 +60,21 @@
       || statuses.includes('likely-active')
       || statuses.includes('needs-review');
   }));
+  const projectSharedRows = $derived(projectRows.filter((item) => item.scope === 'project-shared'));
+  const projectInheritedRows = $derived(projectRows.filter((item) => (item.statuses ?? [item.status]).includes('inherited') || item.metadata.inherited === true));
+  const projectLocalRows = $derived(projectRows.filter((item) => item.scope === 'local-private'));
+  const projectSharedMetadataRows = $derived(projectRows.filter((item) => item.metadata.gitFileState || item.metadata.collaboratorVisibility));
+  const projectWarningRows = $derived(projectRows.filter((item) => item.warnings.length || item.metadata.projectRiskCategories));
+  const projectEffectiveRows = $derived(projectRows.filter((item) => {
+    const states = activationStates(item);
+    return states.includes('active')
+      || states.includes('likely-active')
+      || states.includes('inherited')
+      || states.includes('trust-gated')
+      || states.includes('needs-review')
+      || states.includes('not-tested')
+      || states.includes('found');
+  }));
   const clientSummaries = $derived(summarizeCoreClients(activeScanSummary));
   const coreClientPanels = $derived(clientSummaries.map((summary) => {
     const groups = Object.values(summary.resources.reduce<Record<string, { resourceType: string; rows: CapabilityResource[] }>>((accumulator, resource) => {
@@ -140,6 +155,24 @@
 
   function resourceSourcePath(item: CapabilityResource): string {
     return item.path ?? item.evidence[0]?.sourcePath ?? 'No source path';
+  }
+
+  function stringMetadata(item: CapabilityResource, key: string): string {
+    const value = item.metadata[key];
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return 'unknown';
+  }
+
+  function activationStates(item: CapabilityResource): string[] {
+    const states = item.metadata.activationStates;
+    if (Array.isArray(states)) return states.map(String);
+    return item.statuses ?? [item.status];
+  }
+
+  function activationLabel(item: CapabilityResource): string {
+    const confidence = stringMetadata(item, 'activationConfidence');
+    return confidence === 'unknown' ? item.status : confidence;
   }
 
   function toggleSort(key: SortKey) {
@@ -568,26 +601,144 @@
 
       {#if projectSelectionStatus}<p class="status-line">{projectSelectionStatus}</p>{/if}
 
-      <section class="panel">
-        <div class="table-toolbar embedded">
-          <div>
-            <strong>{projectRows.length} project-relevant resource{projectRows.length === 1 ? '' : 's'}</strong>
-            <span>Includes project-shared, local/private, inherited, likely active, and needs-review records.</span>
+      <section class="project-summary-grid" aria-label="Project inventory summary">
+        <article class="metadata-panel">
+          <h3>Project Resources</h3>
+          <dl class="meta compact-meta project-meta">
+            <div><dt>Shared</dt><dd>{projectSharedRows.length}</dd></div>
+            <div><dt>Inherited</dt><dd>{projectInheritedRows.length}</dd></div>
+            <div><dt>Local</dt><dd>{projectLocalRows.length}</dd></div>
+            <div><dt>Warnings</dt><dd>{projectWarningRows.length}</dd></div>
+          </dl>
+        </article>
+        <article class="metadata-panel">
+          <h3>Selection</h3>
+          <div class="metadata-list">
+            <div class="metadata-row"><span><strong>Selected</strong><code>{activeScanSummary.selectedProject?.selectedPath ?? 'No project selected'}</code></span></div>
+            <div class="metadata-row"><span><strong>Scan root</strong><code>{activeScanSummary.selectedProject?.scanRootPath ?? 'No scan root'}</code></span></div>
+            <div class="metadata-row"><span><strong>Git</strong><small>{activeScanSummary.selectedProject?.gitRootStatus ?? 'unknown'}</small></span></div>
           </div>
-        </div>
-        <div class="resource-list">
-          {#each projectRows as item (item.id)}
-            <button class="resource-row" onclick={() => selectItem(item.id)}>
-              <span>
-                <strong>{item.name}</strong>
-                <small>{item.description}</small>
-              </span>
-              <span class="resource-meta"><span class="badge">{item.client}</span><span>{item.scope}</span><span>{item.status}</span></span>
-            </button>
-          {:else}
-            <div class="empty">No project-scoped or inherited capability resources in this data set.</div>
-          {/each}
-        </div>
+        </article>
+      </section>
+
+      <section class="project-section-grid" aria-label="Project inventory sections">
+        <article class="project-section">
+          <div class="project-section-header">
+            <h3>Project Resources</h3>
+            <span>{projectSharedRows.length}</span>
+          </div>
+          <div class="resource-list compact-list">
+            {#each projectSharedRows as item (item.id)}
+              <button class="resource-row compact-row" onclick={() => selectItem(item.id)}>
+                <span><strong>{item.name}</strong><small>{item.resourceType} · {activationLabel(item)}</small></span>
+                <span class="resource-meta"><span class="badge">{item.client}</span>{#if item.warnings.length}<span class="issue-badge table-issue-badge">{item.warnings.length}</span>{/if}</span>
+              </button>
+            {:else}
+              <div class="empty small-empty">No shared project resources in this data set.</div>
+            {/each}
+          </div>
+        </article>
+
+        <article class="project-section">
+          <div class="project-section-header">
+            <h3>Inherited Global/Profile</h3>
+            <span>{projectInheritedRows.length}</span>
+          </div>
+          <div class="resource-list compact-list">
+            {#each projectInheritedRows as item (item.id)}
+              <button class="resource-row compact-row" onclick={() => selectItem(item.id)}>
+                <span><strong>{item.name}</strong><small>{item.client} · {item.scope} · {activationLabel(item)}</small></span>
+                <span class="resource-meta"><span>{item.resourceType}</span></span>
+              </button>
+            {:else}
+              <div class="empty small-empty">No inherited resources in this data set.</div>
+            {/each}
+          </div>
+        </article>
+
+        <article class="project-section">
+          <div class="project-section-header">
+            <h3>Local/Private</h3>
+            <span>{projectLocalRows.length}</span>
+          </div>
+          <div class="resource-list compact-list">
+            {#each projectLocalRows as item (item.id)}
+              <button class="resource-row compact-row" onclick={() => selectItem(item.id)}>
+                <span><strong>{item.name}</strong><small>{resourceSourcePath(item)}</small></span>
+                <span class="resource-meta"><span class="badge">{item.client}</span><span>{stringMetadata(item, 'collaboratorVisibility')}</span></span>
+              </button>
+            {:else}
+              <div class="empty small-empty">No local/private resources in this data set.</div>
+            {/each}
+          </div>
+        </article>
+
+        <article class="project-section">
+          <div class="project-section-header">
+            <h3>Shared Metadata</h3>
+            <span>{projectSharedMetadataRows.length}</span>
+          </div>
+          <div class="metadata-list">
+            {#each projectSharedMetadataRows as item (item.id)}
+              <button class="metadata-row button-row" onclick={() => selectItem(item.id)}>
+                <span><strong>{item.name}</strong><small>{stringMetadata(item, 'gitFileState')} · {stringMetadata(item, 'collaboratorVisibility')}</small></span>
+                <code>{resourceSourcePath(item)}</code>
+              </button>
+            {:else}
+              <div class="empty small-empty">No git sharing metadata in this data set.</div>
+            {/each}
+          </div>
+        </article>
+
+        <article class="project-section wide">
+          <div class="project-section-header">
+            <h3>Warnings/Caveats</h3>
+            <span>{projectWarningRows.length}</span>
+          </div>
+          <div class="resource-list compact-list">
+            {#each projectWarningRows as item (item.id)}
+              <button class="resource-row compact-row" onclick={() => selectItem(item.id)}>
+                <span><strong>{item.name}</strong><small>{item.warnings[0]?.message ?? stringMetadata(item, 'projectRiskCategories')}</small></span>
+                <span class="resource-meta"><span class="badge">{item.client}</span><span>{item.warnings.length}</span></span>
+              </button>
+            {:else}
+              <div class="empty small-empty">No warnings or caveats in this data set.</div>
+            {/each}
+          </div>
+        </article>
+
+        <article class="project-section wide">
+          <div class="project-section-header">
+            <h3>Best-Effort Effective View</h3>
+            <span>{projectEffectiveRows.length}</span>
+          </div>
+          <div class="table-scroll project-effective-scroll" role="region" aria-label="Best-effort project effective resources">
+            <table class="inventory-table project-effective-table">
+              <thead>
+                <tr>
+                  <th scope="col">Resource</th>
+                  <th scope="col">Client</th>
+                  <th scope="col">Scope</th>
+                  <th scope="col">Activation</th>
+                  <th scope="col">Caveats</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each projectEffectiveRows as item (item.id)}
+                  <tr>
+                    <td><button class="table-name-button" onclick={() => selectItem(item.id)}><strong>{item.name}</strong><span>{item.resourceType}</span></button></td>
+                    <td><span class="badge">{item.client}</span></td>
+                    <td>{item.scope}</td>
+                    <td>{activationLabel(item)}</td>
+                    <td>{item.warnings.length + (Array.isArray(item.metadata.activationCaveats) ? item.metadata.activationCaveats.length : 0)}</td>
+                  </tr>
+                {:else}
+                  <tr><td colspan="5"><div class="empty table-empty">No effective project view data in this data set.</div></td></tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </article>
       </section>
     {:else if mode === 'clients'}
       <section class="topbar">

@@ -206,7 +206,8 @@ const projectResources = [
     status: 'inherited',
     statuses: ['found', 'inherited', 'not-tested'],
     path: '~/Library/Application Support/Claude/claude_desktop_config.json',
-    evidence: [evidence('~/Library/Application Support/Claude/claude_desktop_config.json', 'claude-desktop-mcp', 'claude_desktop_config.json', 'mcpServers.github')]
+    evidence: [evidence('~/Library/Application Support/Claude/claude_desktop_config.json', 'claude-desktop-mcp', 'claude_desktop_config.json', 'mcpServers.github')],
+    metadata: { inherited: true, activationConfidence: 'inherited', activationStates: ['found', 'inherited', 'not-tested', 'unknown'] }
   }),
   resource({
     id: 'project-codex-agents',
@@ -216,9 +217,37 @@ const projectResources = [
     resourceType: 'instruction-file',
     scope: 'project-shared',
     status: 'likely-active',
-    statuses: ['found', 'likely-active', 'needs-review'],
+    statuses: ['found', 'likely-active', 'needs-review', 'trust-gated'],
     path: '/repo/AGENTS.md',
-    evidence: [evidence('/repo/AGENTS.md', 'codex-project-instructions', 'AGENTS.md')]
+    evidence: [evidence('/repo/AGENTS.md', 'codex-project-instructions', 'AGENTS.md')],
+    warnings: [{ kind: 'runtime-caveat', severity: 'warning', message: 'Codex project instructions are trust-gated until the project is trusted.' }],
+    metadata: {
+      gitFileState: 'tracked',
+      collaboratorVisibility: 'shared',
+      activationConfidence: 'likely-active',
+      activationStates: ['found', 'likely-active', 'needs-review', 'trust-gated'],
+      projectRiskCategories: ['shared-committed-file']
+    }
+  }),
+  resource({
+    id: 'project-claude-local-settings',
+    name: 'Claude local settings',
+    description: 'Local/private Claude Code settings can affect the project without being shared.',
+    client: 'claude-code',
+    resourceType: 'config-file',
+    scope: 'local-private',
+    status: 'needs-review',
+    statuses: ['found', 'needs-review'],
+    path: '/repo/.claude/settings.local.json',
+    evidence: [evidence('/repo/.claude/settings.local.json', 'claude-code-config', 'settings.local.json')],
+    warnings: [{ kind: 'runtime-caveat', severity: 'info', message: 'Local/private project files may not be visible to collaborators.' }],
+    metadata: {
+      gitFileState: 'ignored',
+      collaboratorVisibility: 'private',
+      activationConfidence: 'needs-review',
+      activationStates: ['found', 'needs-review'],
+      projectRiskCategories: ['local-private-collaboration']
+    }
   })
 ];
 
