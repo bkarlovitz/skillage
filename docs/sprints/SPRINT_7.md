@@ -17,7 +17,7 @@ Demo a cross-client view that groups related capabilities, identifies duplicates
   - Show MCP server instances across clients/scopes with source locations, configured/not-tested status, env/file-secret references, and relationship labels.
   - Validation: Tests cover duplicate MCP names across Claude Desktop/Codex/Cursor and same-name-only false positives.
 
-- [ ] **Task 7.4**: Implement skill and instruction relationship analysis
+- [x] **Task 7.4**: Implement skill and instruction relationship analysis
   - Group same or similar skills/instructions across clients without assuming identical behavior.
   - Surface shared names, similar descriptions, same source path, and divergent source evidence.
   - Validation: Tests cover identical same-path skill, similar skill, and unrelated same-name instruction.
