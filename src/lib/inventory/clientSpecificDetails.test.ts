@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildClientDetailModel } from './clientSummary';
-import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections, buildCursorDetailSections } from './clientSpecificDetails';
+import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections, buildCodexDetailSections, buildCursorDetailSections } from './clientSpecificDetails';
 import { detectClaudeCode } from './detectors/claudeCode';
+import { detectCodex } from './detectors/codex';
 import { detectCursor } from './detectors/cursor';
 import { getFixtureScenario } from './fixtures';
 import { createEmptyScanSummary } from './scan';
@@ -110,6 +111,99 @@ describe('Claude Desktop client detail sections', () => {
       path: '~/Library/Application Support/Claude/claude_desktop_config.json'
     });
     expect(sections.some((section) => section.id === 'claude-desktop-restart')).toBe(false);
+  });
+});
+
+describe('Codex client detail sections', () => {
+  it('shows Codex layers, MCP, AGENTS, skills, rules, hooks, custom agents, plugins, auth stores, and trust gates', () => {
+    const detected = detectCodex([{
+      path: '/home/user/.codex/config.toml',
+      content: `
+[mcp_servers.github]
+command = "npx"
+`
+    }, {
+      path: '/etc/codex/config.toml',
+      content: 'managed = true'
+    }, {
+      path: '/repo/AGENTS.md',
+      content: '# Project instructions'
+    }, {
+      path: '/home/user/.agents/skills/reviewer/SKILL.md',
+      content: '# Reviewer'
+    }, {
+      path: '/repo/.codex/rules/review.rules',
+      content: 'prefer tests'
+    }, {
+      path: '/repo/.codex/config.toml',
+      content: `
+[mcp_servers.local]
+command = "node"
+
+[hooks.pre_request]
+command = "echo"
+
+[agents.reviewer]
+path = ".codex/agents/reviewer.toml"
+`
+    }, {
+      path: '/repo/.codex/agents/reviewer.toml',
+      content: 'name = "reviewer"'
+    }, {
+      path: '/home/user/.agents/plugins/acme/plugin.json',
+      content: '{}'
+    }, {
+      path: '/home/user/.codex/auth.json',
+      sizeBytes: 1024
+    }]);
+    const detail = buildClientDetailModel(createEmptyScanSummary({
+      resources: detected.resources,
+      parseErrors: detected.parseErrors
+    }), 'codex');
+
+    const sections = buildCodexDetailSections(detail);
+    const ids = sections.map((section) => section.id);
+    const layers = sections.find((section) => section.id === 'codex-layers');
+    const mcp = sections.find((section) => section.id === 'codex-mcp');
+    const trust = sections.find((section) => section.id === 'codex-trust-gates');
+
+    expect(ids).toEqual(expect.arrayContaining([
+      'codex-layers',
+      'codex-mcp',
+      'codex-agents-files',
+      'codex-skills-rules',
+      'codex-hooks-agents',
+      'codex-plugins',
+      'codex-auth-stores',
+      'codex-trust-gates'
+    ]));
+    expect(layers?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '/home/user/.codex/config.toml', value: expect.stringContaining('global') }),
+      expect.objectContaining({ path: '/repo/AGENTS.md', value: expect.stringContaining('trust-gated') }),
+      expect.objectContaining({ path: '/etc/codex/config.toml', value: expect.stringContaining('managed-admin') })
+    ]));
+    expect(mcp?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'github', value: expect.stringContaining('unknown') }),
+      expect.objectContaining({ label: 'local', value: expect.stringContaining('trust-gated') })
+    ]));
+    expect(trust?.rows.some((row) => row.path === '/repo/.codex/rules/review.rules' && row.value.toLowerCase().includes('trust'))).toBe(true);
+  });
+
+  it('fixture data answers which Codex layer introduced resources and whether activation is trust-gated or unknown', () => {
+    const sections = buildCodexDetailSections(buildClientDetailModel(getFixtureScenario('full-machine').summary, 'codex'));
+    const layers = sections.find((section) => section.id === 'codex-layers');
+    const mcp = sections.find((section) => section.id === 'codex-mcp');
+    const trust = sections.find((section) => section.id === 'codex-trust-gates');
+
+    expect(layers?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '/etc/codex/config.toml', value: 'managed-admin · unknown' }),
+      expect.objectContaining({ path: '/repo/AGENTS.md', value: 'project-shared · trust-gated' })
+    ]));
+    expect(mcp?.rows[0]).toMatchObject({
+      label: 'github',
+      value: 'global · unknown · mcp_servers.github'
+    });
+    expect(trust?.rows.some((row) => row.label === 'pre_request' && row.value.toLowerCase().includes('trust'))).toBe(true);
   });
 });
 

@@ -105,4 +105,18 @@ path = ".codex/agents/reviewer.toml"
     expect(result.resources.find((resource) => resource.resourceType === 'plugin')?.scope).toBe('plugin-bundled');
     expect(result.resources.find((resource) => resource.resourceType === 'custom-agent')?.scope).toBe('project-shared');
   });
+
+  it('detects project Codex rules as trust-gated rule resources', () => {
+    const result = detectCodex([{
+      path: '/repo/.codex/rules/review.rules',
+      content: 'prefer tests'
+    }]);
+
+    expect(result.resources[0]).toMatchObject({
+      resourceType: 'rule',
+      scope: 'project-shared',
+      status: 'needs-review'
+    });
+    expect(result.resources[0].warnings[0].message).toContain('workspace trust');
+  });
 });

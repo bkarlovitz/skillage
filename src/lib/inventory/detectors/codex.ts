@@ -72,6 +72,7 @@ function resourceTypeForPath(path: string): CapabilityResourceType {
   if (isSensitiveStore(path)) return 'sensitive-store';
   if (base === 'AGENTS.md' || base === 'AGENTS.override.md') return 'instruction-file';
   if (base === 'SKILL.md') return 'skill';
+  if (normalized.includes('/.codex/rules/')) return 'rule';
   if (base === 'hooks.json' || normalized.includes('/hooks/')) return 'hook';
   if (normalized.includes('/.codex/agents/') && base.endsWith('.toml')) return 'custom-agent';
   if (normalized.includes('/.agents/plugins/') && base === 'plugin.json') return 'plugin';
@@ -90,7 +91,7 @@ function nameFromPath(path: string, resourceType: CapabilityResourceType, projec
 
 function trustGated(resourceType: CapabilityResourceType, scope: CapabilityScope): boolean {
   return scope === 'project-shared'
-    && (resourceType === 'instruction-file' || resourceType === 'skill' || resourceType === 'hook' || resourceType === 'custom-agent');
+    && (resourceType === 'instruction-file' || resourceType === 'skill' || resourceType === 'rule' || resourceType === 'hook' || resourceType === 'custom-agent');
 }
 
 function statusFor(resourceType: CapabilityResourceType, scope: CapabilityScope): CapabilityStatus {

@@ -25,7 +25,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Show global MCP, project MCP, project rules, legacy rule warnings, and schema/parse mismatch warnings.
   - Validation: Fixture demo distinguishes Cursor global MCP from project MCP and shows a malformed config warning.
 
-- [ ] **Task 6.6**: Implement Codex detail view
+- [x] **Task 6.6**: Implement Codex detail view
   - Show layered user, project, system/admin, and managed resources; MCP servers; AGENTS files; skills; rules; hooks; custom agents; plugins; auth stores; and trust-gated project caveats.
   - Validation: Fixture demo answers which Codex layer introduced a resource and whether activation is trust-gated or unknown.
 

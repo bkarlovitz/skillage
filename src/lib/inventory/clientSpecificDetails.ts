@@ -60,6 +60,64 @@ function hasTrustCaveat(resource: CapabilityResource): boolean {
       || resource.warnings.some((warning) => warning.message.toLowerCase().includes('trust')));
 }
 
+function stringMetadata(resource: CapabilityResource, key: string): string | undefined {
+  const value = resource.metadata[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function booleanMetadata(resource: CapabilityResource, key: string): boolean {
+  return resource.metadata[key] === true;
+}
+
+function codexLayer(resource: CapabilityResource): string {
+  return stringMetadata(resource, 'layer') ?? resource.scope;
+}
+
+function codexActivationState(resource: CapabilityResource): string {
+  const statuses = resource.statuses ?? [];
+
+  if (booleanMetadata(resource, 'trustGated')
+    || resource.status === 'trust-gated'
+    || statuses.includes('trust-gated')
+    || hasTrustCaveat(resource)) {
+    return 'trust-gated';
+  }
+
+  const confidence = stringMetadata(resource, 'activationConfidence');
+  if (confidence) return confidence;
+  if (resource.status === 'active' || resource.status === 'likely-active' || resource.status === 'inherited' || resource.status === 'disabled' || resource.status === 'blocked') return resource.status;
+  if (resource.status === 'sensitive') return 'sensitive';
+  if (resource.status === 'parse-error' || resource.status === 'read-error') return resource.status;
+  return 'unknown';
+}
+
+function codexLayerActivation(resource: CapabilityResource): string {
+  return `${codexLayer(resource)} · ${codexActivationState(resource)}`;
+}
+
+function codexKeyedLayerActivation(resource: CapabilityResource): string {
+  const keyPath = resource.evidence[0]?.parsedKeyPath ?? stringMetadata(resource, 'sourceKeyPath');
+  return keyPath ? `${codexLayerActivation(resource)} · ${keyPath}` : codexLayerActivation(resource);
+}
+
+function isCodexAgentsFile(resource: CapabilityResource): boolean {
+  const path = sourcePath(resource);
+  return resource.resourceType === 'instruction-file'
+    && (resource.name === 'AGENTS.md'
+      || resource.name === 'AGENTS.override.md'
+      || path.endsWith('/AGENTS.md')
+      || path.endsWith('/AGENTS.override.md'));
+}
+
+function hasCodexTrustGate(resource: CapabilityResource): boolean {
+  return resource.scope === 'project-shared'
+    && (booleanMetadata(resource, 'trustGated')
+      || resource.status === 'needs-review'
+      || resource.status === 'trust-gated'
+      || (resource.statuses ?? []).some((status) => status === 'needs-review' || status === 'trust-gated')
+      || resource.warnings.some((warning) => warning.message.toLowerCase().includes('trust')));
+}
+
 export function buildClaudeCodeDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   const resources = detail.resources;
   const globalSettings = resources.filter((resource) => resource.resourceType === 'config-file' && resource.scope === 'global');
@@ -145,9 +203,32 @@ export function buildCursorDetailSections(detail: ClientDetailViewModel): Client
   ].filter((item) => item.rows.length > 0);
 }
 
+export function buildCodexDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
+  const resources = detail.resources;
+  const mcpServers = resources.filter((resource) => resource.resourceType === 'mcp-server');
+  const agentsFiles = resources.filter(isCodexAgentsFile);
+  const skillsAndRules = resources.filter((resource) => resource.resourceType === 'skill' || resource.resourceType === 'rule');
+  const hooksAndAgents = resources.filter((resource) => resource.resourceType === 'hook' || resource.resourceType === 'custom-agent');
+  const plugins = resources.filter((resource) => resource.resourceType === 'plugin');
+  const authStores = resources.filter((resource) => resource.resourceType === 'sensitive-store');
+  const trustGates = resources.filter(hasCodexTrustGate);
+
+  return [
+    section('codex-layers', 'Codex Layers', 'User, project, system/admin, managed, local/private, and plugin-bundled Codex resources.', resources, codexLayerActivation),
+    section('codex-mcp', 'MCP Servers', 'Codex MCP servers with the layer that introduced each definition.', mcpServers, codexKeyedLayerActivation),
+    section('codex-agents-files', 'AGENTS Files', 'Codex AGENTS instruction files and their activation caveats.', agentsFiles, codexLayerActivation),
+    section('codex-skills-rules', 'Skills And Rules', 'Codex skills and rule files discovered across user, project, and plugin layers.', skillsAndRules, codexLayerActivation),
+    section('codex-hooks-agents', 'Hooks And Custom Agents', 'Codex hooks and custom agents that may execute project-specific behavior.', hooksAndAgents, codexKeyedLayerActivation),
+    section('codex-plugins', 'Plugins', 'Codex plugins and plugin-provided resources.', plugins, codexLayerActivation),
+    section('codex-auth-stores', 'Auth Stores', 'Codex auth/token stores are represented as metadata-only resources.', authStores, (resource) => `${codexLayer(resource)} · ${resource.previewPolicy ?? 'metadata-only'}`),
+    section('codex-trust-gates', 'Trust-Gated Project Resources', 'Project-scoped Codex resources that require explicit trust or review before treating them as active.', trustGates, (resource) => firstCaveat(resource) || codexActivationState(resource))
+  ].filter((item) => item.rows.length > 0);
+}
+
 export function buildClientSpecificSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   if (detail.client === 'claude-code') return buildClaudeCodeDetailSections(detail);
   if (detail.client === 'claude-desktop') return buildClaudeDesktopDetailSections(detail);
+  if (detail.client === 'codex') return buildCodexDetailSections(detail);
   if (detail.client === 'cursor') return buildCursorDetailSections(detail);
   return [];
 }
