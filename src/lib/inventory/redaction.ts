@@ -53,7 +53,7 @@ const rules: RedactionRule[] = [
   },
   {
     matchType: 'file-secret-reference',
-    pattern: /(\b(?:secret|token|credential|credentials|password)[_-]?(?:file|path)\b\s*[:=]\s*)(["']?)([^"'\s]+)(["']?)/gi,
+    pattern: /((?:"|')?(?:secret|token|credential|credentials|password)[_-]?(?:file|path)(?:"|')?\s*[:=]\s*)(["']?)([^"'\s,}]+)(["']?)/gi,
     replace: (_match, prefix, quote, _value, endQuote) => `${prefix}${quote}${secretValue}${endQuote}`
   }
 ];

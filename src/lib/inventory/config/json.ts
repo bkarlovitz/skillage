@@ -69,7 +69,8 @@ function baseEvidence(input: JsonConfigParseInput, parseStatus: CapabilityEviden
 
 function secretKeyLooksSensitive(key: string): boolean {
   return /(^|[_-])(api[_-]?key|access[_-]?key|client[_-]?secret|secret[_-]?key|token|password|passwd|pwd|credential|credentials)($|[_-])/i.test(key)
-    || /^(apiKey|accessKey|clientSecret|secretKey|token|password|passwd|pwd|credential|credentials)$/i.test(key);
+    || /^(apiKey|accessKey|clientSecret|secretKey|token|password|passwd|pwd|credential|credentials)$/i.test(key)
+    || /^(secret|token|credential|credentials|password)(File|Path)$/i.test(key);
 }
 
 function keyPathToString(path: readonly string[]): string {
@@ -139,13 +140,17 @@ function redactParsedJson(value: JsonValue, input: JsonConfigParseInput, warning
 function previewForParsedJson(value: JsonValue, input: JsonConfigParseInput): { preview: CapabilityContentPreview; warnings: CapabilityWarning[] } {
   const warnings: CapabilityWarning[] = [];
   const redactedValue = redactParsedJson(value, input, warnings);
+  const redactedText = redactSensitiveText(JSON.stringify(redactedValue, null, 2));
   return {
     preview: {
       policy: 'redacted-preview',
       rawPreviewAllowed: false,
-      text: JSON.stringify(redactedValue, null, 2)
+      text: redactedText.text
     },
-    warnings
+    warnings: [
+      ...warnings,
+      ...redactedText.warnings.map((warning) => warningFromRedaction(input, warning.message))
+    ]
   };
 }
 

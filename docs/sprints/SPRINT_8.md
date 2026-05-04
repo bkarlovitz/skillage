@@ -17,7 +17,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Prove normal inventory does not modify files, install packages, start MCP servers, authenticate to services, invoke shell commands from config, or deeply ingest logs/sessions.
   - Validation: Scanner audit tests use fixtures with executable-looking MCP commands and verify no process execution occurs.
 
-- [ ] **Task 8.4**: Add secret regression fixtures
+- [x] **Task 8.4**: Add secret regression fixtures
   - Cover inline API keys, bearer tokens, OAuth-looking tokens, password fields, `.env` assignments, env var references, file-secret references, and auth-store presence.
   - Validation: Redaction regression tests pass and snapshots contain redaction markers instead of raw values.
 

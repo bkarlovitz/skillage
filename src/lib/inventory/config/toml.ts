@@ -63,7 +63,8 @@ function normalizeKeyPath(keyPath: string | readonly string[]): string[] {
 
 function secretKeyLooksSensitive(key: string): boolean {
   return /(^|[_-])(api[_-]?key|access[_-]?key|client[_-]?secret|secret[_-]?key|token|password|passwd|pwd|credential|credentials)($|[_-])/i.test(key)
-    || /^(apiKey|accessKey|clientSecret|secretKey|token|password|passwd|pwd|credential|credentials)$/i.test(key);
+    || /^(apiKey|accessKey|clientSecret|secretKey|token|password|passwd|pwd|credential|credentials)$/i.test(key)
+    || /^(secret|token|credential|credentials|password)(File|Path)$/i.test(key);
 }
 
 function isObject(value: TomlValue | undefined): value is TomlObject {
@@ -275,14 +276,23 @@ function previewForToml(value: TomlObject | undefined, input: TomlConfigParseInp
 
   const warnings: CapabilityWarning[] = [];
   const redactedValue = redactParsedToml(value, input, warnings);
+  const redactedText = redactSensitiveText(JSON.stringify(redactedValue, null, 2));
   return {
     preview: {
       policy: 'redacted-preview',
       rawPreviewAllowed: false,
-      text: JSON.stringify(redactedValue, null, 2),
+      text: redactedText.text,
       reason: parseErrors.length ? 'TOML was partially parsed; malformed lines were omitted from preview.' : undefined
     },
-    warnings
+    warnings: [
+      ...warnings,
+      ...redactedText.warnings.map((warning): CapabilityWarning => ({
+        kind: 'secret-auth-concern',
+        severity: 'warning',
+        message: warning.message,
+        evidence: baseEvidence(input, 'partially-parsed')
+      }))
+    ]
   };
 }
 
