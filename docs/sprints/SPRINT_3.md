@@ -44,7 +44,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Clearly distinguish global MCP servers from project MCP servers.
   - Validation: Detector tests cover global MCP, project MCP, valid MDC rules, malformed MDC frontmatter, and legacy `.cursorrules`.
 
-- [ ] **Task 3.9**: Add core-client client summaries
+- [x] **Task 3.9**: Add core-client client summaries
   - Compute installed/configured/partially-configured/not-found status for Claude Code, Claude Desktop, Codex, and Cursor from known locations and resources.
   - Include readable/parseable counts and top caveats.
   - Validation: Summary tests cover found, partial, not-found, parse-error, and read-error states.

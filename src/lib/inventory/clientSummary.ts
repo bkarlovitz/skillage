@@ -1,0 +1,111 @@
+import type { ScanSummary } from './scan';
+import type { CapabilityClient, CapabilityResource, CapabilityStatus } from './types';
+
+export const coreInventoryClients = ['claude-code', 'claude-desktop', 'codex', 'cursor'] as const satisfies readonly CapabilityClient[];
+
+export type CoreInventoryClient = typeof coreInventoryClients[number];
+export type CoreClientSummaryStatus = 'installed' | 'configured' | 'partially-configured' | 'not-found';
+
+export interface CoreClientSummary {
+  client: CoreInventoryClient;
+  status: CoreClientSummaryStatus;
+  resourceCount: number;
+  knownLocationCount: number;
+  readableCount: number;
+  unreadableCount: number;
+  parseableCount: number;
+  parseErrorCount: number;
+  warningCount: number;
+  caveats: string[];
+  resources: CapabilityResource[];
+}
+
+const configuredResourceTypes = new Set<CapabilityResource['resourceType']>([
+  'config-file',
+  'mcp-server',
+  'skill',
+  'instruction-file',
+  'rule',
+  'permission',
+  'hook',
+  'plugin',
+  'custom-agent',
+  'profile',
+  'workspace'
+]);
+
+function statusesFor(resource: CapabilityResource): CapabilityStatus[] {
+  return resource.statuses ?? [resource.status];
+}
+
+function hasProblemStatus(resource: CapabilityResource): boolean {
+  const statuses = statusesFor(resource);
+  return statuses.includes('parse-error') || statuses.includes('read-error');
+}
+
+function isConfiguredResource(resource: CapabilityResource): boolean {
+  return configuredResourceTypes.has(resource.resourceType)
+    && resource.status !== 'not-found'
+    && resource.status !== 'parse-error'
+    && resource.status !== 'read-error';
+}
+
+function topCaveats(summary: ScanSummary, client: CoreInventoryClient, resources: CapabilityResource[]): string[] {
+  const caveats = [
+    ...resources.flatMap((resource) => resource.warnings.map((warning) => warning.message)),
+    ...summary.readErrors.filter((error) => error.client === client).map((error) => error.message),
+    ...summary.parseErrors.filter((error) => error.client === client).map((error) => error.message),
+    ...summary.skippedSensitiveStores.filter((store) => store.client === client).map((store) => store.reason),
+    ...summary.warnings.filter((warning) => warning.client === client).map((warning) => warning.message)
+  ];
+
+  return Array.from(new Set(caveats)).slice(0, 3);
+}
+
+function evidenceCounts(resources: CapabilityResource[]) {
+  const evidence = resources.flatMap((resource) => resource.evidence);
+  return {
+    readableCount: evidence.filter((item) => item.readStatus === 'read').length,
+    unreadableCount: evidence.filter((item) => item.readStatus === 'unreadable').length,
+    parseableCount: evidence.filter((item) => item.parseStatus === 'parsed' || item.parseStatus === 'partially-parsed').length,
+    parseErrorCount: evidence.filter((item) => item.parseStatus === 'parse-error').length
+  };
+}
+
+function summaryStatus(summary: ScanSummary, client: CoreInventoryClient, resources: CapabilityResource[]): CoreClientSummaryStatus {
+  const locations = summary.knownClientLocations.filter((location) => location.client === client);
+  const hasLocation = locations.some((location) => location.exists);
+  const hasReadOrParseProblem = summary.readErrors.some((error) => error.client === client)
+    || summary.parseErrors.some((error) => error.client === client)
+    || resources.some(hasProblemStatus);
+  const hasConfigured = resources.some(isConfiguredResource);
+  const hasAnyFoundResource = resources.some((resource) => resource.status !== 'not-found');
+
+  if (hasReadOrParseProblem) return 'partially-configured';
+  if (hasConfigured) return 'configured';
+  if (hasLocation || hasAnyFoundResource) return 'installed';
+  return 'not-found';
+}
+
+export function summarizeCoreClients(summary: ScanSummary): CoreClientSummary[] {
+  return coreInventoryClients.map((client) => {
+    const resources = summary.resources.filter((resource) => resource.client === client);
+    const locations = summary.knownClientLocations.filter((location) => location.client === client);
+    const warningCount = resources.reduce((total, resource) => total + resource.warnings.length, 0)
+      + summary.warnings.filter((warning) => warning.client === client).length
+      + summary.readErrors.filter((error) => error.client === client).length
+      + summary.parseErrors.filter((error) => error.client === client).length;
+    const counts = evidenceCounts(resources);
+
+    return {
+      client,
+      status: summaryStatus(summary, client, resources),
+      resourceCount: resources.length,
+      knownLocationCount: locations.length,
+      warningCount,
+      caveats: topCaveats(summary, client, resources),
+      resources,
+      ...counts
+    };
+  });
+}
