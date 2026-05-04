@@ -39,7 +39,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Include caveats where inheritance depends on profile, trust, current working directory, runtime state, or client behavior.
   - Validation: Inheritance tests cover inherited global MCP, profile-scoped Hermes resources, Codex trust-gated project layers, and unknown activation.
 
-- [ ] **Task 5.8**: Add project activation confidence and caveat data
+- [x] **Task 5.8**: Add project activation confidence and caveat data
   - Represent found, likely-active, inherited, unknown, needs-review, not-tested, trust-gated, disabled, blocked, shadowed, and overridden as data, not just UI text.
   - Validation: Tests verify project resources are not marked active unless evidence supports it.
 

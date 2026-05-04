@@ -65,6 +65,7 @@ describe('inventory domain types', () => {
     ]);
     expect(capabilityStatuses).toContain('read-error');
     expect(capabilityStatuses).toContain('needs-review');
+    expect(capabilityStatuses).toContain('trust-gated');
     expect(isCapabilityScope('project-shared')).toBe(true);
     expect(isCapabilityScope('found')).toBe(false);
     expect(isCapabilityStatus('found')).toBe(true);

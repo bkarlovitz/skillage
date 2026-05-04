@@ -57,6 +57,7 @@ export const capabilityStatuses = [
   'sensitive',
   'needs-review',
   'not-tested',
+  'trust-gated',
   'unknown'
 ] as const;
 

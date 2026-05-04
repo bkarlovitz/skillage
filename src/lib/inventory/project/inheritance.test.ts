@@ -50,9 +50,10 @@ describe('project inherited resources', () => {
       metadata: {
         inherited: true,
         inheritedFromScope: 'global',
-        activationConfidence: 'unknown'
+        activationConfidence: 'inherited'
       }
     });
+    expect(result.inheritedResources[0].metadata.activationStates).toEqual(expect.arrayContaining(['inherited', 'unknown']));
     expect(result.inheritedResources[0].warnings[0].message).toContain('Global MCP inheritance depends');
     expect(result.inheritedResources[0].relationships[0]).toMatchObject({
       kind: 'inherits-from',
@@ -125,7 +126,7 @@ describe('project inherited resources', () => {
       context
     });
 
-    expect(result.inheritedResources[0].metadata.activationConfidence).toBe('unknown');
+    expect(result.inheritedResources[0].metadata.activationStates).toEqual(expect.arrayContaining(['inherited', 'unknown']));
     expect(result.caveats[0]).toContain('depends on client behavior');
   });
 });

@@ -1,5 +1,6 @@
 import type { SelectedProjectContext } from '../scan';
 import type { CapabilityResource, CapabilityStatus, CapabilityWarning } from '../types';
+import { withProjectActivationData } from './activation';
 
 export interface ProjectInheritanceResult {
   resources: CapabilityResource[];
@@ -48,7 +49,7 @@ export function inheritedProjectResource(resource: CapabilityResource, context: 
   const caveat = caveatForInherited(resource, context);
   const activationConfidence = activationConfidenceForInherited(resource, context);
 
-  return {
+  return withProjectActivationData({
     ...resource,
     id: `inherited:${resource.id}`,
     status: 'inherited',
@@ -68,7 +69,7 @@ export function inheritedProjectResource(resource: CapabilityResource, context: 
       activationConfidence,
       inheritanceCaveats: [caveat]
     }
-  };
+  });
 }
 
 export function annotateProjectLayerCaveats(resource: CapabilityResource, context: SelectedProjectContext): CapabilityResource {
@@ -78,7 +79,7 @@ export function annotateProjectLayerCaveats(resource: CapabilityResource, contex
     ? 'Codex project resources are in a trusted project, but activation still depends on the active Codex runtime.'
     : 'Codex project resources are trust-gated until the selected project is trusted by the client.';
 
-  return {
+  return withProjectActivationData({
     ...resource,
     statuses: resourceStatuses(resource, ['needs-review']),
     warnings: resource.warnings.some((warning) => warning.message === caveat)
@@ -93,7 +94,7 @@ export function annotateProjectLayerCaveats(resource: CapabilityResource, contex
         caveat
       ]
     }
-  };
+  });
 }
 
 export function joinInheritedProjectResources(input: {

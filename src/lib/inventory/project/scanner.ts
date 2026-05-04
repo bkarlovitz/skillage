@@ -4,6 +4,7 @@ import { evidence, resource, stableId } from '../detectors/common';
 import { defaultPreviewPolicy } from '../preview';
 import { createEmptyScanSummary, type ScanSummary, type SelectedProjectContext, type SkippedSensitiveStore } from '../scan';
 import type { CapabilityClient, CapabilityResource } from '../types';
+import { withProjectActivationData } from './activation';
 import { classifyGitFileState, gitFileMetadata, withGitMetadata } from './git';
 import type { GitCommandRunner } from './context';
 import { classifyProjectPathScope } from './scope';
@@ -115,7 +116,8 @@ export async function scanProjectInventory(input: ProjectInventoryScanInput): Pr
   const safeStores = safeProjectStoreResources(input.files, input.context, existingPaths);
   const syntheticStorePaths = new Set(safeStores.resources.map((item) => item.path).filter((path): path is string => Boolean(path)));
   const detectorResources = detected.resources.filter((item) => !(item.path && syntheticStorePaths.has(item.path) && item.resourceType === 'config-file'));
-  const resources = await attachGitMetadata([...detectorResources, ...safeStores.resources], input.context, input.runGit);
+  const resources = (await attachGitMetadata([...detectorResources, ...safeStores.resources], input.context, input.runGit))
+    .map(withProjectActivationData);
 
   return createEmptyScanSummary({
     id: 'project-inventory-scan',
