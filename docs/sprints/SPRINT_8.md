@@ -25,7 +25,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Ensure a real empty machine scan and a real empty project scan remain empty and never load fixtures automatically.
   - Validation: Tests assert empty scan summaries render empty states with no demo resources.
 
-- [ ] **Task 8.6**: Validate source-path clarity across the app
+- [x] **Task 8.6**: Validate source-path clarity across the app
   - Add checks that Machine Inventory, Project Inventory, Client Detail, and Cross-Client views show source paths or explicit unknown-source labels for all discovered resources.
   - Validation: Acceptance tests assert source path text or unknown-source labels are present in every resource detail fixture.
 
