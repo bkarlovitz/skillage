@@ -50,6 +50,6 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Keep future write/install language only as non-goal or future-direction text.
   - Validation: review `README.md`, `src`, and `docs` for dropped active-product wording.
 
-- [ ] **Task 1.10**: Preserve current app buildability during the reset
+- [x] **Task 1.10**: Preserve current app buildability during the reset
   - Keep browser dev, production build, and Tauri runtime imports compiling after the model and navigation changes.
   - Validation: `npm run test`, `npm run check`, and `npm run build` pass.
