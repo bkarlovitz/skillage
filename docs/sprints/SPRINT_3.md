@@ -19,7 +19,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - If a dependency is added, keep it justified in the parser strategy doc.
   - Validation: TOML parser tests cover valid MCP config, malformed TOML, inline secret warning, and unknown tables.
 
-- [ ] **Task 3.4**: Extract MCP server resources without starting commands
+- [x] **Task 3.4**: Extract MCP server resources without starting commands
   - Add extraction helpers that identify MCP server name, command/package/url hints, env var references, source config path, and "configured/not tested" status.
   - Never execute MCP commands during extraction.
   - Validation: Tests assert extraction returns `not-tested` or `found` and never attempts process execution.
