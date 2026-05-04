@@ -15,7 +15,7 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Keep client, type, scope, and status as separate enums/unions so values like `claude-desktop`, `mcp-server`, and `project-shared` cannot be mixed.
   - Validation: `npm run test -- src/lib/inventory/types.test.ts` passes after adding model shape tests.
 
-- [ ] **Task 1.3**: Define the scanner-to-UI contract
+- [x] **Task 1.3**: Define the scanner-to-UI contract
   - Add a contract for scan summaries that distinguishes discovered resources, known client locations, selected project context, scan roots, read errors, parse errors, skipped sensitive/log stores, and scanner warnings.
   - Include source evidence fields for scanner rule, matched path pattern, parsed key path, included-from path, and read/parse status.
   - Validation: Contract tests verify read errors and skipped sensitive resources can be represented without raw content.
