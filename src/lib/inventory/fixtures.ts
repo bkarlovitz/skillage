@@ -369,7 +369,15 @@ export const fixtureScenarios: InventoryFixtureScenario[] = [
       dataSource: 'fixture',
       resources: projectResources,
       knownClientLocations: clientLocations,
-      selectedProject: { rootPath: '/repo', displayName: 'repo', trustState: 'unknown' }
+      selectedProject: {
+        rootPath: '/repo',
+        selectedPath: '/repo',
+        repoRootPath: '/repo',
+        scanRootPath: '/repo',
+        displayName: 'repo',
+        trustState: 'unknown',
+        gitRootStatus: 'found'
+      }
     })
   },
   {

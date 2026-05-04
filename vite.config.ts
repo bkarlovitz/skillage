@@ -3,12 +3,14 @@ import { defineConfig, type Plugin } from 'vite';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { parseVirtualFiles } from './src/lib/adapters';
 import { coreInventoryClients } from './src/lib/inventory/clientSummary';
 import { detectCoreClients } from './src/lib/inventory/detectors';
 import { capabilityResourcesFromSkillItems } from './src/lib/inventory/legacy';
 import { buildLocalScanResult } from './src/lib/inventory/localScan';
 import { knownClientLocationsForPlatform, type OsFamily } from './src/lib/inventory/locations';
+import { createProjectContext, type GitRootResolution } from './src/lib/inventory/project/context';
 import type { ScanSummary } from './src/lib/inventory/scan';
 
 const MAX_FILES = 2_000;
@@ -177,6 +179,33 @@ export function scanStandardRoots(): ScanSummary {
   return summary;
 }
 
+function expandDevRoot(root: string): string {
+  return path.resolve(root.replace(/^~(?=$|\/)/, os.homedir()));
+}
+
+export function detectDevGitRoot(root: string): GitRootResolution {
+  try {
+    const stdout = execFileSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    const repoRootPath = stdout.trim().split(/\r?\n/)[0]?.trim();
+    return repoRootPath ? { repoRootPath, gitRootStatus: 'found' } : { gitRootStatus: 'not-found' };
+  } catch (error) {
+    const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+    return { gitRootStatus: code === 'ENOENT' ? 'git-unavailable' : 'not-found' };
+  }
+}
+
+export function resolveDevProjectContext(root: string) {
+  const selectedPath = expandDevRoot(root);
+  return createProjectContext({
+    selectedPath,
+    displayName: path.basename(selectedPath),
+    ...detectDevGitRoot(selectedPath)
+  });
+}
+
 function skillageDevScanner(): Plugin {
   return {
     name: 'skillage-dev-scanner',
@@ -191,6 +220,13 @@ function skillageDevScanner(): Plugin {
         const root = url.searchParams.get('root');
         res.setHeader('content-type', 'application/json');
         res.end(JSON.stringify(root ? scanRoot(root) : virtualFilesToDevScanSummary([], 'root', '')));
+      });
+
+      server.middlewares.use('/api/project-context', (req, res) => {
+        const url = new URL(req.url ?? '', 'http://localhost');
+        const root = url.searchParams.get('root');
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify(root ? resolveDevProjectContext(root) : createProjectContext({ selectedPath: '' })));
       });
     }
   };

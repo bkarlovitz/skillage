@@ -6,7 +6,7 @@
   import type { ScanSummary } from './lib/inventory/scan';
   import { filterCapabilityResources } from './lib/inventory/tableModel';
   import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
-  import { runtimeLabel, scanRoot, scanStandardLocations, selectProjectFolder } from './lib/native';
+  import { resolveProjectContext, runtimeLabel, scanRoot, scanStandardLocations, selectProjectFolder } from './lib/native';
   import { paginate, sortCapabilityResources, type SortDirection, type SortKey } from './lib/table';
   import { applyTheme, getStoredTheme, resolveTheme, storeTheme, systemPrefersDark, type ThemePreference } from './lib/theme';
 
@@ -219,17 +219,16 @@
     projectSelectionStatus = 'Selecting project folder...';
     try {
       const selection = await selectProjectFolder(projectPath);
-      projectPath = selection.selectedPath;
+      const context = await resolveProjectContext(selection.selectedPath);
+      projectPath = context.selectedPath;
       activeScanSummary = {
         ...activeScanSummary,
-        selectedProject: {
-          rootPath: selection.selectedPath,
-          displayName: selection.displayName,
-          trustState: 'unknown'
-        }
+        selectedProject: context
       };
       mode = 'project';
-      projectSelectionStatus = `Selected ${selection.selectedPath}.`;
+      projectSelectionStatus = context.repoRootPath
+        ? `Selected ${context.selectedPath}; scanning git root ${context.repoRootPath}.`
+        : `Selected ${context.selectedPath}; scanning selected folder.`;
     } catch (error) {
       projectSelectionStatus = error instanceof Error ? error.message : 'Project selection failed.';
     }
@@ -555,7 +554,7 @@
         <div>
           <p class="eyebrow">Project Inventory</p>
           <h2>{activeScanSummary.selectedProject?.displayName ?? 'Selected project'}</h2>
-          <p>{activeScanSummary.selectedProject?.rootPath ?? 'Fixture scenarios can include a selected project context; local scans currently show root-level capability matches.'}</p>
+          <p>{activeScanSummary.selectedProject?.scanRootPath ?? 'Fixture scenarios can include a selected project context; local scans currently show root-level capability matches.'}</p>
         </div>
       </section>
 

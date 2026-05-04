@@ -9,7 +9,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Preserve manual path entry or fixture project selection in browser dev mode.
   - Validation: `npm run check` passes and manual Tauri dev selection returns a project path without broad renderer filesystem access.
 
-- [ ] **Task 5.2**: Track selected folder versus detected repo root
+- [x] **Task 5.2**: Track selected folder versus detected repo root
   - Detect the git repository root for the selected folder when available.
   - Keep selected folder, repo root, and scan root as separate fields in project context.
   - Validation: Tests cover selected repo root, selected subdirectory, non-git folder, and git-unavailable fallback.

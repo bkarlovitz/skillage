@@ -2,7 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { parseVirtualFiles, type VirtualFile } from './adapters';
 import { capabilityResourcesFromSkillItems } from './inventory/legacy';
 import { buildLocalScanResult } from './inventory/localScan';
-import type { ScanSummary } from './inventory/scan';
+import { createProjectContext, displayNameForProjectPath } from './inventory/project/context';
+import type { ScanSummary, SelectedProjectContext } from './inventory/scan';
 
 export type RuntimeKind = 'tauri' | 'browser-dev' | 'browser-production';
 
@@ -87,11 +88,6 @@ export async function scanStandardLocations(): Promise<ScanSummary> {
   throw new Error('Standard-location scanning requires the Skillage desktop app.');
 }
 
-function displayNameFromPath(path: string): string {
-  const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
-  return normalized.split('/').filter(Boolean).pop() ?? (normalized || 'Selected project');
-}
-
 export async function selectProjectFolder(path: string): Promise<ProjectFolderSelection> {
   const trimmed = path.trim();
   if (!trimmed) throw new Error('Enter a project folder path first.');
@@ -103,10 +99,55 @@ export async function selectProjectFolder(path: string): Promise<ProjectFolderSe
   if (import.meta.env.DEV) {
     return {
       selectedPath: trimmed,
-      displayName: displayNameFromPath(trimmed),
+      displayName: displayNameForProjectPath(trimmed),
       source: 'browser-dev-manual'
     };
   }
 
   throw new Error('Project folder selection requires the Skillage desktop app.');
+}
+
+async function fetchJson(endpoint: string): Promise<unknown> {
+  const response = await fetch(endpoint);
+  if (!response.ok) throw new Error(`Dev scanner failed: ${response.status}`);
+  return response.json();
+}
+
+function normalizeProjectContext(payload: unknown): SelectedProjectContext {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Project context response was not an object.');
+  }
+
+  const context = payload as Partial<SelectedProjectContext>;
+  if (typeof context.selectedPath !== 'string') {
+    throw new Error('Project context response did not include a selected path.');
+  }
+
+  return createProjectContext({
+    selectedPath: context.selectedPath,
+    repoRootPath: typeof context.repoRootPath === 'string' ? context.repoRootPath : undefined,
+    displayName: typeof context.displayName === 'string' ? context.displayName : undefined,
+    activeProfile: typeof context.activeProfile === 'string' ? context.activeProfile : undefined,
+    trustState: context.trustState,
+    gitRootStatus: context.gitRootStatus
+  });
+}
+
+export async function resolveProjectContext(path: string): Promise<SelectedProjectContext> {
+  const trimmed = path.trim();
+  if (!trimmed) throw new Error('Enter a project folder path first.');
+
+  if (isTauriRuntime()) {
+    return invoke<SelectedProjectContext>('resolve_project_context', { root: trimmed });
+  }
+
+  if (import.meta.env.DEV) {
+    try {
+      return normalizeProjectContext(await fetchJson(`/api/project-context?root=${encodeURIComponent(trimmed)}`));
+    } catch {
+      return createProjectContext({ selectedPath: trimmed });
+    }
+  }
+
+  throw new Error('Project context resolution requires the Skillage desktop app.');
 }

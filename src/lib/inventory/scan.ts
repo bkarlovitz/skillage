@@ -32,9 +32,13 @@ export interface KnownClientLocation {
 
 export interface SelectedProjectContext {
   rootPath: string;
+  selectedPath: string;
+  repoRootPath?: string;
+  scanRootPath: string;
   displayName: string;
   activeProfile?: string;
   trustState: 'trusted' | 'untrusted' | 'unknown';
+  gitRootStatus: 'found' | 'not-found' | 'git-unavailable';
 }
 
 export interface ScanReadError {

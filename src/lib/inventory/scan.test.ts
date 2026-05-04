@@ -8,9 +8,13 @@ describe('scan summary contract', () => {
       dataSource: 'fixture',
       selectedProject: {
         rootPath: '/repo/skillage',
+        selectedPath: '/repo/skillage/apps/web',
+        repoRootPath: '/repo/skillage',
+        scanRootPath: '/repo/skillage',
         displayName: 'skillage',
         activeProfile: 'default',
-        trustState: 'unknown'
+        trustState: 'unknown',
+        gitRootStatus: 'found'
       },
       scanRoots: [{
         path: '~/.codex',
@@ -45,6 +49,8 @@ describe('scan summary contract', () => {
 
     expect(summary.dataSource).toBe('fixture');
     expect(summary.selectedProject?.displayName).toBe('skillage');
+    expect(summary.selectedProject?.selectedPath).toBe('/repo/skillage/apps/web');
+    expect(summary.selectedProject?.scanRootPath).toBe('/repo/skillage');
     expect(summary.scanRoots[0].client).toBe('codex');
     expect(summary.knownClientLocations[0].exists).toBe(false);
     expect(summary.resources).toEqual([]);

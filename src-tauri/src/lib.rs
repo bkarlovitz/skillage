@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 use walkdir::WalkDir;
 
@@ -220,6 +221,21 @@ struct ProjectFolderSelection {
     selected_path: String,
     display_name: String,
     source: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SelectedProjectContext {
+    root_path: String,
+    selected_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    repo_root_path: Option<String>,
+    scan_root_path: String,
+    display_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    active_profile: Option<String>,
+    trust_state: String,
+    git_root_status: String,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -837,6 +853,46 @@ fn project_folder_selection(root: &str) -> Result<ProjectFolderSelection, String
     })
 }
 
+fn git_repo_root_for_path(root: &Path) -> (Option<String>, String) {
+    match Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .stdin(Stdio::null())
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let repo_root = stdout.lines().next().map(str::trim).filter(|line| !line.is_empty());
+            match repo_root {
+                Some(path) => (Some(path.to_string()), "found".to_string()),
+                None => (None, "not-found".to_string()),
+            }
+        }
+        Ok(_) => (None, "not-found".to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => (None, "git-unavailable".to_string()),
+        Err(_) => (None, "git-unavailable".to_string()),
+    }
+}
+
+fn selected_project_context(root: &str) -> Result<SelectedProjectContext, String> {
+    let selection = project_folder_selection(root)?;
+    let (repo_root_path, git_root_status) = git_repo_root_for_path(Path::new(&selection.selected_path));
+    let scan_root_path = repo_root_path.clone().unwrap_or_else(|| selection.selected_path.clone());
+
+    Ok(SelectedProjectContext {
+        root_path: scan_root_path.clone(),
+        selected_path: selection.selected_path,
+        repo_root_path,
+        scan_root_path,
+        display_name: selection.display_name,
+        active_profile: None,
+        trust_state: "unknown".to_string(),
+        git_root_status,
+    })
+}
+
 fn standard_skill_roots_for_home(home: &Path) -> Vec<PathBuf> {
     vec![
         home.join(".claude"),
@@ -1075,10 +1131,20 @@ fn select_project_folder(root: String) -> Result<ProjectFolderSelection, String>
     project_folder_selection(&root)
 }
 
+#[tauri::command]
+fn resolve_project_context(root: String) -> Result<SelectedProjectContext, String> {
+    selected_project_context(&root)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![scan_skill_files, scan_standard_skill_files, select_project_folder])
+        .invoke_handler(tauri::generate_handler![
+            scan_skill_files,
+            scan_standard_skill_files,
+            select_project_folder,
+            resolve_project_context
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Skillage");
 }
@@ -1131,6 +1197,20 @@ mod tests {
 
         assert!(project_folder_selection(file.to_str().expect("utf8 path")).expect_err("file rejected").contains("directory"));
         assert!(project_folder_selection(root.join("missing").to_str().expect("utf8 path")).expect_err("missing rejected").contains("does not exist"));
+
+        fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn selected_project_context_keeps_selected_and_scan_roots() {
+        let root = unique_test_dir("project-context");
+        fs::create_dir_all(&root).expect("create project root");
+
+        let context = selected_project_context(root.to_str().expect("utf8 path")).expect("resolve project context");
+
+        assert_eq!(context.selected_path, context.scan_root_path);
+        assert_eq!(context.root_path, context.scan_root_path);
+        assert!(context.git_root_status == "not-found" || context.git_root_status == "git-unavailable");
 
         fs::remove_dir_all(root).expect("remove root");
     }
