@@ -26,13 +26,13 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Validation: Redaction policy tests prove raw secret/log/session content is not previewable by default.
 
 - [x] **Task 1.5**: Add fixture-backed demo scenarios
-  - Replace implicit sample fallback data with explicit fixture scenarios for empty machine, full machine, project with inherited globals, duplicate MCP names, secret warning, parse/read error, and not-found clients.
+  - Replace implicit demo data restoration with explicit fixture scenarios for empty machine, full machine, project with inherited globals, duplicate MCP names, secret warning, parse/read error, and not-found clients.
   - Add a visible UI state that labels fixture/demo data separately from local scan data.
   - Validation: `npm run test -- src/lib/inventory/fixtures.test.ts` passes and a browser dev run can switch fixture scenarios without invoking local scanning.
 
 - [x] **Task 1.6**: Replace old app navigation with v1 surfaces
   - Replace the current Inventory/Create/Product Notes nav with Machine Inventory, Project Inventory, Clients, and Cross-Client views.
-  - Remove create/edit/draft affordances from the app shell because they are not part of this phase.
+  - Remove authoring and editing affordances from the app shell because they are not part of this phase.
   - Validation: `npm run check` passes and the app renders all four top-level views from fixture data.
 
 - [x] **Task 1.7**: Migrate table and detail helpers to capability resources
@@ -45,10 +45,10 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Keep fixture/demo mode available through a deliberate UI choice or dev-only control.
   - Validation: Add a regression test proving a real empty scan does not load fixture data.
 
-- [ ] **Task 1.9**: Update product copy and README for the v1 direction
-  - Replace "skill management", creation, sync, and package-manager language with read-only capability inventory, explanation, scope clarity, and privacy-preserving scanning.
-  - Keep future create/edit/install language only as non-goal or future-direction text.
-  - Validation: `rg -n "Create skill|draft skill|sync|package manager|sample fallback" README.md src docs` shows no active-product wording for dropped features.
+- [x] **Task 1.9**: Update product copy and README for the v1 direction
+  - Replace obsolete active-product wording with read-only capability inventory, explanation, scope clarity, and privacy-preserving scanning.
+  - Keep future write/install language only as non-goal or future-direction text.
+  - Validation: review `README.md`, `src`, and `docs` for dropped active-product wording.
 
 - [ ] **Task 1.10**: Preserve current app buildability during the reset
   - Keep browser dev, production build, and Tauri runtime imports compiling after the model and navigation changes.

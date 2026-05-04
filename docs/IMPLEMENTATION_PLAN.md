@@ -2,7 +2,7 @@
 
 > For Hermes: Use subagent-driven-development skill to implement future tasks task-by-task.
 
-Goal: Build a lightweight local-first desktop MVP for browsing, validating, and creating developer agent skills/rules.
+Goal: Build a lightweight local-first desktop MVP for read-only inventory and explanation of developer agent capabilities.
 
 Architecture: Svelte + TypeScript renders the normalized inventory UI. Core parsers/adapters are pure TypeScript and tested with Vitest. Tauri 2/Rust provides native filesystem scanning and later file watching/safe writes.
 
@@ -24,12 +24,12 @@ Verification:
 
 ## Task 2: Inventory UI
 
-Objective: Display detected assets, filters, validation issues, and body preview.
+Objective: Display detected capability resources, filters, warnings, source evidence, and safe preview policy.
 
 Files:
 - `src/App.svelte`
 - `src/app.css`
-- `src/lib/sampleData.ts`
+- `src/lib/inventory/fixtures.ts`
 
 Verification:
 - `npm run check`
@@ -48,7 +48,7 @@ Files:
 Verification:
 - On a system with Rust: `npm run tauri:dev`.
 
-## Task 4: Next implementation step
+## Task 4: Scanner integration
 
 Objective: Wire the frontend to the Tauri `scan_skill_files` command.
 
@@ -56,11 +56,11 @@ Implementation notes:
 - Use `@tauri-apps/api/core` `invoke` only when running inside Tauri.
 - Use `@tauri-apps/plugin-dialog` or a narrow backend command for folder selection.
 - Parse returned virtual files with `parseVirtualFiles`.
-- Keep sample data as fallback in browser mode.
+- Keep fixture/demo mode as an explicit user choice, separate from local scan results.
 
-## Task 5: Safe writes
+## Task 5: Future safe writes
 
-Objective: Create/update skills with backup and diff preview.
+Objective: Any future write workflow must be explicit, single-target, and previewed before changing files.
 
 Implementation notes:
 - Never execute scripts while indexing.

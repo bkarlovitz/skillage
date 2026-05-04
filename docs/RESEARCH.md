@@ -2,9 +2,9 @@
 
 ## Executive summary
 
-Developers are accumulating many overlapping agent instruction systems: `CLAUDE.md`, `AGENTS.md`, Claude/Hermes-style `SKILL.md` directories, Cursor MDC rules, Windsurf rules, MCP config, and tool-specific global/project settings. The biggest pain is not authoring one prompt; it is knowing which instruction is active, why a tool ignored it, how to keep formats in sync, and how to install/share skills safely.
+Developers are accumulating many overlapping agent instruction systems: `CLAUDE.md`, `AGENTS.md`, Claude/Hermes-style `SKILL.md` directories, Cursor MDC rules, Windsurf rules, MCP config, and tool-specific global/project settings. The biggest pain is not authoring one prompt; it is knowing which instruction is active, why a tool ignored it, which scope applies, and which files are safe to inspect.
 
-Skillage should be a local-first, open-source desktop app that acts as an effective-context inspector, linter, converter, and package manager for developer agent skills/rules.
+Skillage should be a local-first, open-source desktop app that acts as a read-only capability inventory, explanation layer, and source-path inspector for developer agent ecosystems.
 
 ## Primary users
 
@@ -30,7 +30,7 @@ Skillage should be a local-first, open-source desktop app that acts as an effect
 
 5. Safety/trust
    - Skills may contain scripts, command instructions, env var requirements, or MCP server config.
-   - A manager should show risk before install/update and never execute imported scripts during indexing.
+   - An inventory tool should show risk before any future write workflow and never execute imported scripts during indexing.
 
 6. Git/team workflow
    - Developers need to distinguish committed team rules from local personal rules.
@@ -40,7 +40,7 @@ Skillage should be a local-first, open-source desktop app that acts as an effect
 
 The strongest wedge is:
 
-> Show me all the instructions my coding agents are using in this repo, validate them, and help me sync them across Claude Code, Codex, Hermes, OpenClaw, and Cursor.
+> Show me which agent capabilities exist on this machine, where they live, what scope they have, and what may affect this repo.
 
 This is more valuable than a generic prompt manager because it solves the messy local filesystem reality developers already have.
 
@@ -64,12 +64,12 @@ This is more valuable than a generic prompt manager because it solves the messy 
    - Select repo + path + target agent.
    - Show applicable instructions and likely precedence.
 
-5. Safe create/edit, later
-   - Draft skills first.
+5. Safe single-target writes, later
+   - User-initiated only.
    - Backup + diff before writing to disk.
 
-6. Registry/package management, later
-   - Install from GitHub.
+6. Registry/discovery, later
+   - Discovery should come after local inventory is excellent.
    - Show source, license, scripts, env requirements, checksums, and trust decisions.
 
 ## Technology recommendation

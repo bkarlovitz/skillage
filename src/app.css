@@ -453,8 +453,6 @@ pre {
 .empty { color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 18px; background: var(--surface-muted); }
 .prose { max-width: 820px; }
 .prose li { margin-bottom: 8px; color: var(--text-muted); line-height: 1.55; }
-.create-panel { max-width: 780px; }
-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }

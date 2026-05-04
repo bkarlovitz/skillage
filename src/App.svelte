@@ -244,7 +244,7 @@
 
 <svelte:head>
   <title>Skillage</title>
-  <meta name="description" content="Local-first skill and rule management for coding agents" />
+  <meta name="description" content="Local-first capability inventory for developer agent ecosystems" />
 </svelte:head>
 
 <div class="shell">
@@ -253,7 +253,7 @@
       <div class="mark" aria-hidden="true">S</div>
       <div>
         <h1>Skillage</h1>
-        <p>Local-first skill management</p>
+        <p>Local-first capability inventory</p>
       </div>
     </div>
 
