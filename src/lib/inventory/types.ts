@@ -62,6 +62,15 @@ export const capabilityStatuses = [
 
 export type CapabilityStatus = typeof capabilityStatuses[number];
 
+export const contentPreviewPolicies = [
+  'metadata-only',
+  'redacted-preview',
+  'safe-markdown-preview',
+  'unread-sensitive'
+] as const;
+
+export type ContentPreviewPolicy = typeof contentPreviewPolicies[number];
+
 export const capabilityWarningKinds = [
   'parse-read-problem',
   'scope-concern',
@@ -128,6 +137,7 @@ export interface CapabilityResource {
   scope: CapabilityScope;
   status: CapabilityStatus;
   statuses?: CapabilityStatus[];
+  previewPolicy?: ContentPreviewPolicy;
   path?: string;
   evidence: CapabilityEvidence[];
   warnings: CapabilityWarning[];

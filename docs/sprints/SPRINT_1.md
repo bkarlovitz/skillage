@@ -20,7 +20,7 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Include source evidence fields for scanner rule, matched path pattern, parsed key path, included-from path, and read/parse status.
   - Validation: Contract tests verify read errors and skipped sensitive resources can be represented without raw content.
 
-- [ ] **Task 1.4**: Define privacy and content preview policies
+- [x] **Task 1.4**: Define privacy and content preview policies
   - Add explicit policies such as `metadata-only`, `redacted-preview`, `safe-markdown-preview`, and `unread-sensitive`.
   - Ensure sensitive stores, auth files, logs, sessions, transcripts, cache traces, and memory stores default to metadata-only or unread-sensitive.
   - Validation: Redaction policy tests prove raw secret/log/session content is not previewable by default.
