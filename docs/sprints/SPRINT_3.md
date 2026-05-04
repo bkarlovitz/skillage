@@ -34,7 +34,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Mark project-scoped skills/servers/hooks as needs-review when activation depends on trust.
   - Validation: Detector tests cover global `.claude`, repo `.claude`, settings.local-style local/private files, project MCP, and trust caveats.
 
-- [ ] **Task 3.7**: Implement Codex detector for user/system/admin resources
+- [x] **Task 3.7**: Implement Codex detector for user/system/admin resources
   - Detect Codex user, project, and system/admin configs; AGENTS files; `.agents` skills/plugins; MCP servers; hooks; custom agents; auth stores; managed/admin settings.
   - Represent Codex layers without claiming trust-gated project resources are active when trust is unknown.
   - Validation: Detector tests cover user config, `/etc/codex`, project AGENTS, `.agents` skill locations, managed/admin config, and trust-gated caveats.
