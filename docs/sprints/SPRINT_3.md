@@ -14,7 +14,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Preserve original path and parsed key path in evidence.
   - Validation: JSON parser tests cover valid config, malformed config, nested MCP keys, and secret-like fields.
 
-- [ ] **Task 3.3**: Add TOML config parsing for Codex-style configs
+- [x] **Task 3.3**: Add TOML config parsing for Codex-style configs
   - Parse TOML enough to find client config, MCP definitions, hooks, custom agents, auth references, and malformed files.
   - If a dependency is added, keep it justified in the parser strategy doc.
   - Validation: TOML parser tests cover valid MCP config, malformed TOML, inline secret warning, and unknown tables.
