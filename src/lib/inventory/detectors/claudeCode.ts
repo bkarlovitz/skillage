@@ -25,10 +25,6 @@ function segments(path: string): string[] {
   return normalizePath(path).split('/').filter(Boolean);
 }
 
-function claudeIndex(path: string): number {
-  return segments(path).findIndex((part) => part.toLowerCase() === '.claude');
-}
-
 function isClaudeCodeFile(file: DetectorFile): boolean {
   const normalized = comparablePath(file.path);
   const base = basename(file.path);

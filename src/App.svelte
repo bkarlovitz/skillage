@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { findCapabilityResourceById } from './lib/detail';
+  import { summarizeCoreClients } from './lib/inventory/clientSummary';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import type { ScanSummary } from './lib/inventory/scan';
   import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
@@ -64,26 +65,15 @@
       || statuses.includes('likely-active')
       || statuses.includes('needs-review');
   }));
-  const clientSummaries = $derived(capabilityClients.map((client) => {
-    const resources = items.filter((item) => item.client === client);
-    const locations = activeScanSummary.knownClientLocations.filter((location) => location.client === client);
-    const scannerProblems = [
-      ...activeScanSummary.readErrors.filter((error) => error.client === client),
-      ...activeScanSummary.parseErrors.filter((error) => error.client === client),
-      ...activeScanSummary.warnings.filter((warning) => warning.client === client)
-    ];
-    const state = resources.some((item) => item.status !== 'not-found')
-      ? 'found'
-      : locations.some((location) => location.exists) || scannerProblems.length > 0
-        ? 'partial'
-        : 'not-found';
-    return {
-      client,
-      resources,
-      locations,
-      state,
-      found: state === 'found'
-    };
+  const clientSummaries = $derived(summarizeCoreClients(activeScanSummary));
+  const coreClientPanels = $derived(clientSummaries.map((summary) => {
+    const groups = Object.values(summary.resources.reduce<Record<string, { resourceType: string; rows: CapabilityResource[] }>>((accumulator, resource) => {
+      const group = accumulator[resource.resourceType] ?? { resourceType: resource.resourceType, rows: [] };
+      group.rows.push(resource);
+      accumulator[resource.resourceType] = group;
+      return accumulator;
+    }, {})).sort((a, b) => a.resourceType.localeCompare(b.resourceType));
+    return { ...summary, groups };
   }));
   const scannerProblemRows = $derived([
     ...activeScanSummary.readErrors.map((error) => ({ id: error.id, severity: 'error', label: 'Read error', message: error.message, path: error.path })),
@@ -144,6 +134,17 @@
   function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
     if (sortKey !== key) return 'none';
     return sortDirection === 'asc' ? 'ascending' : 'descending';
+  }
+
+  function previewSnippet(item: CapabilityResource): string {
+    const text = item.contentPreview?.text;
+    if (!text || item.contentPreview?.policy === 'unread-sensitive') return '';
+    const compact = text.replace(/\s+/g, ' ').trim();
+    return compact.length > 140 ? `${compact.slice(0, 137)}...` : compact;
+  }
+
+  function resourceSourcePath(item: CapabilityResource): string {
+    return item.path ?? item.evidence[0]?.sourcePath ?? 'No source path';
   }
 
   function toggleSort(key: SortKey) {
@@ -317,6 +318,56 @@
       </section>
 
       <p class="status-line data-source-line"><strong>{sourceModeLabel}</strong><span>{dataSourceLabel}</span></p>
+
+      <section class="core-client-grid" aria-label="Core client inventory">
+        {#each coreClientPanels as summary}
+          <article class="core-client-card">
+            <div class="client-card-header">
+              <h3>{summary.client}</h3>
+              <span class:ok-status={summary.status === 'configured' || summary.status === 'installed'} class:partial-status={summary.status === 'partially-configured'} class="client-status">{summary.status}</span>
+            </div>
+            <dl class="meta compact-meta core-meta">
+              <div><dt>Resources</dt><dd>{summary.resourceCount}</dd></div>
+              <div><dt>Warnings</dt><dd>{summary.warningCount}</dd></div>
+              <div><dt>Readable</dt><dd>{summary.readableCount}</dd></div>
+              <div><dt>Parseable</dt><dd>{summary.parseableCount}</dd></div>
+            </dl>
+            <div class="core-resource-groups">
+              {#each summary.groups as group}
+                <section class="core-resource-group" aria-label={`${summary.client} ${group.resourceType}`}>
+                  <div class="core-group-heading">
+                    <strong>{group.resourceType}</strong>
+                    <span>{group.rows.length}</span>
+                  </div>
+                  {#each group.rows.slice(0, 3) as item (item.id)}
+                    <button class="core-resource-row" onclick={() => selectItem(item.id)}>
+                      <span>
+                        <strong>{item.name}</strong>
+                        <small>{item.scope} · {item.status} · {resourceSourcePath(item)}</small>
+                        {#if previewSnippet(item)}<code>{previewSnippet(item)}</code>{/if}
+                      </span>
+                      {#if item.warnings.length}
+                        <span class="issue-badge table-issue-badge">{item.warnings.length}</span>
+                      {:else}
+                        <span class="zero-issues">0</span>
+                      {/if}
+                    </button>
+                  {/each}
+                </section>
+              {:else}
+                <div class="empty small-empty">No resources for this client in the active data set.</div>
+              {/each}
+            </div>
+            {#if summary.caveats.length}
+              <ul class="core-caveats">
+                {#each summary.caveats as caveat}
+                  <li>{caveat}</li>
+                {/each}
+              </ul>
+            {/if}
+          </article>
+        {/each}
+      </section>
 
       <section class="scanner-metadata-grid" aria-label="Scanner metadata">
         <article class="metadata-panel">
@@ -526,11 +577,11 @@
           <article class="client-card">
             <div class="client-card-header">
               <h3>{summary.client}</h3>
-              <span class:ok-status={summary.state === 'found'} class:partial-status={summary.state === 'partial'} class="client-status">{summary.state}</span>
+              <span class:ok-status={summary.status === 'configured' || summary.status === 'installed'} class:partial-status={summary.status === 'partially-configured'} class="client-status">{summary.status}</span>
             </div>
             <dl class="meta compact-meta">
-              <div><dt>Resources</dt><dd>{summary.resources.length}</dd></div>
-              <div><dt>Known locations</dt><dd>{summary.locations.length}</dd></div>
+              <div><dt>Resources</dt><dd>{summary.resourceCount}</dd></div>
+              <div><dt>Known locations</dt><dd>{summary.knownLocationCount}</dd></div>
             </dl>
             <div class="resource-list compact-list">
               {#each summary.resources.slice(0, 4) as item (item.id)}

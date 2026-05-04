@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseVirtualFiles } from './src/lib/adapters';
+import { coreInventoryClients } from './src/lib/inventory/clientSummary';
+import { detectCoreClients } from './src/lib/inventory/detectors';
 import { capabilityResourcesFromSkillItems } from './src/lib/inventory/legacy';
 import { buildLocalScanResult } from './src/lib/inventory/localScan';
 import { knownClientLocationsForPlatform, type OsFamily } from './src/lib/inventory/locations';
@@ -32,9 +34,15 @@ function isInteresting(filePath: string): boolean {
     || basename === 'TOOLS.md'
     || basename === 'MEMORY.md'
     || basename === '.cursorrules'
+    || basename === 'claude_desktop_config.json'
     || basename === 'hooks.json'
     || basename === 'openclaw.json'
-    || (basename === 'config.toml' && lower.includes('/.codex/'))
+    || ((basename === 'settings.json' || basename === 'settings.local.json' || basename === 'mcp.json') && (lower.includes('/.claude/') || lower.includes('/.cursor/')))
+    || (basename === 'config.toml' && (lower.includes('/.codex/') || lower.includes('/etc/codex/')))
+    || (normalized.includes('/.claude/commands/') && basename.endsWith('.md'))
+    || (normalized.includes('/.claude/agents/') && basename.endsWith('.md'))
+    || (normalized.includes('/.codex/agents/') && basename.endsWith('.toml'))
+    || (normalized.includes('/.agents/') && (basename === 'SKILL.md' || basename === 'plugin.json' || basename === 'marketplace.json'))
     || (normalized.includes('/.cursor/rules/') && (basename.endsWith('.mdc') || basename.endsWith('.md')))
     || (normalized.includes('/.openclaw/') && basename.endsWith('.md'))
     || (normalized.includes('/.claude/rules/') && basename.endsWith('.md'))
@@ -83,11 +91,16 @@ export function standardRoots(): string[] {
   const home = os.homedir();
   return [
     path.join(home, '.claude'),
+    path.join(home, '.config', 'Claude'),
+    path.join(home, 'Library', 'Application Support', 'Claude'),
     path.join(home, '.hermes', 'skills'),
     path.join(home, '.hermes', 'hermes-agent', 'skills'),
     path.join(home, '.hermes', 'hermes-agent', 'optional-skills'),
     path.join(home, '.codex'),
     path.join(home, '.agents'),
+    path.join(home, '.cursor'),
+    path.join(home, '.config', 'Cursor', 'User'),
+    path.join(home, 'Library', 'Application Support', 'Cursor', 'User'),
     path.join(home, '.openclaw'),
     '/etc/codex',
     process.cwd()
@@ -109,8 +122,11 @@ function knownLocationsForDev(existingPaths: string[]): ReturnType<typeof knownC
 }
 
 export function virtualFilesToDevScanSummary(files: VirtualFile[], kind: 'standard' | 'root', root = ''): ScanSummary {
-  const resources = capabilityResourcesFromSkillItems(parseVirtualFiles(files));
-  return buildLocalScanResult({
+  const coreResult = detectCoreClients(files);
+  const coreClients = new Set<string>(coreInventoryClients);
+  const legacyResources = capabilityResourcesFromSkillItems(parseVirtualFiles(files)).filter((resource) => !coreClients.has(resource.client));
+  const resources = [...coreResult.resources, ...legacyResources];
+  const result = buildLocalScanResult({
     scanId: kind === 'standard' ? 'local-standard-scan' : 'local-root-scan',
     rootPath: kind === 'standard' ? 'standard locations' : root,
     rootLabel: kind === 'standard' ? 'Standard local locations' : 'Selected scan root',
@@ -121,6 +137,12 @@ export function virtualFilesToDevScanSummary(files: VirtualFile[], kind: 'standa
     loadedStatus: '',
     emptyStatus: ''
   }).summary;
+
+  result.readErrors = coreResult.readErrors;
+  result.parseErrors = coreResult.parseErrors;
+  result.skippedSensitiveStores = coreResult.skippedSensitiveStores;
+  result.warnings = coreResult.warnings;
+  return result;
 }
 
 export function scanRoot(root: string): ScanSummary {

@@ -58,6 +58,16 @@ export function emptyDetectorResult(): DetectorResult {
   };
 }
 
+export function mergeDetectorResults(results: DetectorResult[]): DetectorResult {
+  return results.reduce<DetectorResult>((merged, result) => ({
+    resources: [...merged.resources, ...result.resources],
+    readErrors: [...merged.readErrors, ...result.readErrors],
+    parseErrors: [...merged.parseErrors, ...result.parseErrors],
+    skippedSensitiveStores: [...merged.skippedSensitiveStores, ...result.skippedSensitiveStores],
+    warnings: [...merged.warnings, ...result.warnings]
+  }), emptyDetectorResult());
+}
+
 export function normalizePath(path: string): string {
   return path.replace(/\\/g, '/').replace(/\/+/g, '/');
 }

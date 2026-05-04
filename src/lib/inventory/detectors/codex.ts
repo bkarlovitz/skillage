@@ -25,10 +25,6 @@ function segments(path: string): string[] {
   return normalizePath(path).split('/').filter(Boolean);
 }
 
-function markerIndex(path: string, marker: '.codex' | '.agents'): number {
-  return segments(path).findIndex((part) => part.toLowerCase() === marker);
-}
-
 function isHomeMarkerPath(path: string, marker: '.codex' | '.agents'): boolean {
   const normalized = normalizePath(path);
   if (normalized.startsWith(`~/${marker}/`)) return true;

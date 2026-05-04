@@ -289,7 +289,6 @@ function previewForToml(value: TomlObject | undefined, input: TomlConfigParseInp
 export function parseTomlConfig(input: TomlConfigParseInput): ParsedTomlConfig {
   const root: TomlObject = {};
   const parseErrors: ConfigParseError[] = [];
-  let currentPath: string[] = [];
   let currentTarget = root;
 
   for (const [index, rawLine] of input.content.replace(/^\uFEFF/, '').split(/\r?\n/).entries()) {
@@ -312,7 +311,6 @@ export function parseTomlConfig(input: TomlConfigParseInput): ParsedTomlConfig {
         continue;
       }
 
-      currentPath = tablePath;
       currentTarget = arrayTable ? getArrayTableTarget(root, tablePath) : ensureObjectAtPath(root, tablePath);
       continue;
     }

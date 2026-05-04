@@ -49,7 +49,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Include readable/parseable counts and top caveats.
   - Validation: Summary tests cover found, partial, not-found, parse-error, and read-error states.
 
-- [ ] **Task 3.10**: Render core clients in Machine Inventory
+- [x] **Task 3.10**: Render core clients in Machine Inventory
   - Group resources by client and resource type, show source paths, scopes, statuses, warning counts, and safe previews where allowed.
   - Keep fixture mode and local scan mode visually distinct.
   - Validation: `npm run test`, `npm run check`, and `npm run build` pass; fixture demo shows all four core clients.

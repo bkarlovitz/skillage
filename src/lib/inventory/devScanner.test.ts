@@ -38,4 +38,14 @@ describe('Vite dev scanner contract', () => {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('uses core client detectors for dev scanner summaries', () => {
+    const summary = virtualFilesToDevScanSummary([{
+      path: '/repo/.cursor/mcp.json',
+      content: JSON.stringify({ mcpServers: { filesystem: { command: 'node' } } })
+    }], 'root', '/repo');
+
+    expect(summary.resources.some((resource) => resource.client === 'cursor' && resource.resourceType === 'mcp-server')).toBe(true);
+    expect(summary.resources.find((resource) => resource.resourceType === 'mcp-server')?.scope).toBe('project-shared');
+  });
 });

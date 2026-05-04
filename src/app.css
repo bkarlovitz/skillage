@@ -238,6 +238,80 @@ input::placeholder { color: var(--text-subtle); }
   gap: 12px;
   margin-bottom: 14px;
 }
+.core-client-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.core-client-card {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 13px;
+  box-shadow: var(--shadow-sm);
+}
+.core-meta {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.core-meta div { padding: 8px; border-radius: var(--radius-sm); }
+.core-meta dd { font-size: 12px; }
+.core-resource-groups { display: grid; gap: 8px; }
+.core-resource-group {
+  display: grid;
+  gap: 6px;
+}
+.core-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.core-group-heading strong,
+.core-group-heading span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.core-resource-row {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text);
+  padding: 8px 9px;
+  text-align: left;
+}
+.core-resource-row:hover { background: var(--surface-hover); }
+.core-resource-row > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.core-resource-row strong,
+.core-resource-row small,
+.core-resource-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.core-resource-row strong { font-size: 12px; }
+.core-resource-row small { color: var(--text-muted); font-size: 11px; }
+.core-resource-row code { color: var(--text-subtle); font-size: 10px; }
+.core-caveats {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--warning);
+  font-size: 11px;
+  line-height: 1.35;
+}
 .metadata-panel {
   min-width: 0;
   border: 1px solid var(--border-subtle);
