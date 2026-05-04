@@ -1,4 +1,5 @@
 import type { CapabilityResource, CapabilityResourceType } from './types';
+import { sourceLocationForResource } from './sourceClarity';
 
 export interface CapabilityGroupingKeys {
   primaryKey: string;
@@ -30,7 +31,7 @@ function normalizePath(value: string | undefined): string {
 }
 
 export function sourceLocation(resource: CapabilityResource): string {
-  return resource.path ?? resource.evidence[0]?.sourcePath ?? resource.evidence[0]?.sourceLabel ?? 'unknown source';
+  return sourceLocationForResource(resource);
 }
 
 function stringMetadata(resource: CapabilityResource, key: string): string {

@@ -12,6 +12,7 @@
   import { relationshipLabels } from './lib/inventory/relationships';
   import { buildSafeResourceDetailPanels } from './lib/inventory/safeDetailPanels';
   import type { ScanSummary } from './lib/inventory/scan';
+  import { sourceLocationForResource, unknownSourceLocation } from './lib/inventory/sourceClarity';
   import { filterCapabilityResources } from './lib/inventory/tableModel';
   import { capabilityClients, capabilityResourceTypes, capabilityScopes, capabilityStatuses, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
   import { resolveProjectContext, runtimeLabel, scanRoot, scanStandardLocations, selectProjectFolder } from './lib/native';
@@ -159,7 +160,7 @@
   }
 
   function resourceSourcePath(item: CapabilityResource): string {
-    return item.path ?? item.evidence[0]?.sourcePath ?? 'No source path';
+    return sourceLocationForResource(item);
   }
 
   function stringMetadata(item: CapabilityResource, key: string): string {
@@ -559,7 +560,7 @@
                         <span class="zero-issues">0</span>
                       {/if}
                     </td>
-                    <td><code class="table-path">{item.path ?? item.evidence[0]?.sourcePath ?? '—'}</code></td>
+                    <td><code class="table-path">{resourceSourcePath(item)}</code></td>
                   </tr>
                 {:else}
                   <tr>
@@ -855,7 +856,7 @@
                         {#each section.rows as row}
                           <button class="metadata-row button-row" onclick={() => row.resourceId ? selectItem(row.resourceId) : undefined}>
                             <span><strong>{row.label}</strong><small>{row.value}</small>{#if row.caveat}<small>{row.caveat}</small>{/if}</span>
-                            <code>{row.path ?? 'No source path'}</code>
+                            <code>{row.path ?? unknownSourceLocation}</code>
                           </button>
                         {/each}
                       </div>
@@ -872,7 +873,7 @@
                   {#each clientSpecificExplanations as explanation}
                     <button class="metadata-row button-row" onclick={() => explanation.resourceId ? selectItem(explanation.resourceId) : undefined}>
                       <span><strong>{explanation.title}</strong><small>{explanation.body}</small><small>{explanation.caveat}</small></span>
-                      <code>{explanation.sourcePath ?? explanation.evidence?.sourcePath ?? explanation.evidence?.sourceLabel ?? 'No source path'}</code>
+                      <code>{explanation.sourcePath ?? explanation.evidence?.sourcePath ?? explanation.evidence?.sourceLabel ?? unknownSourceLocation}</code>
                     </button>
                   {/each}
                 </div>
@@ -1063,7 +1064,7 @@
                 <h2>{selected.name}</h2>
                 <p>{selected.description}</p>
               </div>
-              <button class="button ghost" onclick={() => navigator.clipboard?.writeText(selected.path ?? selected.evidence[0]?.sourcePath ?? '')}>Copy path</button>
+              <button class="button ghost" onclick={() => navigator.clipboard?.writeText(resourceSourcePath(selected))}>Copy path</button>
             </div>
 
             <dl class="meta detail-meta">
@@ -1072,7 +1073,7 @@
               <div><dt>Status</dt><dd>{selected.status}</dd></div>
               <div><dt>Preview</dt><dd>{selected.previewPolicy ?? 'metadata-only'}</dd></div>
               <div><dt>Scanner</dt><dd>{selected.evidence[0]?.scannerRule ?? '—'}</dd></div>
-              <div><dt>Path</dt><dd>{selected.path ?? selected.evidence[0]?.sourcePath ?? '—'}</dd></div>
+              <div><dt>Path</dt><dd>{resourceSourcePath(selected)}</dd></div>
             </dl>
 
             <section class="detail-section">

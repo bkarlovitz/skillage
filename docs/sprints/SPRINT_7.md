@@ -46,7 +46,7 @@ Demo a cross-client view that groups related capabilities, identifies duplicates
   - Reuse the same relationship model for project effective view and cross-client grouping instead of duplicating inference logic.
   - Validation: Tests prove a shadowing relationship appears consistently in Project Inventory and Cross-Client views.
 
-- [ ] **Task 7.10**: Add source-path clarity checks
+- [x] **Task 7.10**: Add source-path clarity checks
   - Ensure every grouped capability has at least one source path or source location when known.
   - Show unknown source explicitly when the source cannot be known.
   - Validation: Tests assert all fixture resources satisfy source-path clarity or explicit unknown-source behavior.
