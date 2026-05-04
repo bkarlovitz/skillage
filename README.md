@@ -66,6 +66,7 @@ The desktop app uses Tauri/Rust commands for local scanning. Standard-location s
 - Native scanning is implemented as a narrow Rust command rather than broad renderer filesystem access.
 - The Rust scanner skips dependency/build directories, does not follow symlinks, limits scan depth, limits result count, and skips oversized files.
 - Future write support is outside the current phase and should use backups, atomic writes, and a diff preview before changing existing global or project files.
+- Scanner permissions are documented in `docs/SCANNER_PERMISSIONS.md`; the current desktop capability file grants only Tauri core defaults.
 
 ## Why local-first?
 

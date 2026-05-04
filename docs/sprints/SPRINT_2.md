@@ -54,7 +54,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Do not show raw file bodies in the shell.
   - Validation: `npm run check`, `npm run build`, and a manual dev scan show scanner metadata grouped by client/location.
 
-- [ ] **Task 2.11**: Review Tauri permissions for scanner-only access
+- [x] **Task 2.11**: Review Tauri permissions for scanner-only access
   - Verify the app still uses narrow Rust commands rather than broad renderer filesystem permissions.
   - Document any permission added for future folder selection separately from scanner internals.
   - Validation: `src-tauri/capabilities/default.json` remains minimal and `npm run tauri:build` is not blocked by capability configuration where the environment supports it.
