@@ -33,7 +33,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Cover `\\wsl.localhost`, `\\wsl$`, duplicate namespace suppression, WSL home discovery, WSL project selection, UNC path normalization, stable IDs, and no symlink following.
   - Validation: Rust and TypeScript path tests pass on Linux while simulating Windows/WSL inputs.
 
-- [ ] **Task 8.8**: Add Windows build and WSL smoke-test checklist
+- [x] **Task 8.8**: Add Windows build and WSL smoke-test checklist
   - Document how to run a Windows desktop build and verify it scans Windows user locations plus WSL homes on the same machine.
   - Include both UNC namespaces, duplicate handling, WSL home discovery, and secret/log redaction checks.
   - Validation: Checklist exists in docs and references the exact commands and expected UI results.
