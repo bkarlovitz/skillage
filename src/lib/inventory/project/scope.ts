@@ -1,10 +1,6 @@
 import type { SelectedProjectContext } from '../scan';
 import type { CapabilityScope } from '../types';
-
-const LOCAL_PRIVATE_FILENAMES = new Set([
-  'claude.local.md',
-  'settings.local.json'
-]);
+import { classifyProjectResourceConvention } from './conventions';
 
 const GLOBAL_HOME_MARKERS = new Set([
   '.agents',
@@ -35,14 +31,6 @@ export function normalizeComparableProjectPath(path: string): string {
     || normalized.toLowerCase();
 }
 
-function pathParts(path: string): string[] {
-  return normalizeComparableProjectPath(path).split('/').filter(Boolean);
-}
-
-function basename(path: string): string {
-  return pathParts(path).pop() ?? '';
-}
-
 function isInsidePath(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`);
 }
@@ -66,12 +54,7 @@ function isGlobalHomeResourcePath(path: string): boolean {
 }
 
 export function isLocalPrivateProjectPath(path: string): boolean {
-  const normalized = normalizeComparableProjectPath(path);
-  const fileName = basename(normalized);
-  return LOCAL_PRIVATE_FILENAMES.has(fileName)
-    || normalized.includes('/local/')
-    || normalized.includes('/.claude/local/')
-    || normalized.includes('/.codex/local/');
+  return classifyProjectResourceConvention(path).scope === 'local-private';
 }
 
 export function classifyProjectPathScope(path: string, context: SelectedProjectContext): ProjectPathClassification {
@@ -80,14 +63,14 @@ export function classifyProjectPathScope(path: string, context: SelectedProjectC
   const relativePath = relativePathFor(normalizedPath, normalizedProjectRoot);
 
   if (normalizedProjectRoot && isInsidePath(normalizedPath, normalizedProjectRoot)) {
-    const scope = isLocalPrivateProjectPath(normalizedPath) ? 'local-private' : 'project-shared';
+    const convention = classifyProjectResourceConvention(normalizedPath);
     return {
-      scope,
+      scope: convention.scope,
       withinProject: true,
       normalizedPath,
       normalizedProjectRoot,
       relativePath,
-      reason: scope === 'local-private' ? 'project-local-convention' : 'inside-selected-project'
+      reason: convention.reason
     };
   }
 

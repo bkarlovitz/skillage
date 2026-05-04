@@ -19,7 +19,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Preserve global classification for resources outside the selected project.
   - Validation: Tests cover `/home/user/repo`, `C:\\Users\\user\\repo`, and WSL UNC project paths.
 
-- [ ] **Task 5.4**: Add local/private project resource detection
+- [x] **Task 5.4**: Add local/private project resource detection
   - Detect local/private project files where the ecosystem clearly supports that concept, such as local settings files or unshared local overrides.
   - Use unknown instead of overclaiming when the source convention is unclear.
   - Validation: Tests cover local/private positive examples and unknown fallback examples.
