@@ -29,7 +29,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Make exact config path prominent and add restart-required caveat.
   - Validation: Fixture tests cover found config, wrong/missing path, malformed MCP config, logs presence, and no project scope.
 
-- [ ] **Task 3.6**: Implement Claude Code detector
+- [x] **Task 3.6**: Implement Claude Code detector
   - Detect global and project-aware Claude Code settings, skills, commands, MCP definitions, instruction files, local/private settings, hooks, plugins, and permission-like resources where present.
   - Mark project-scoped skills/servers/hooks as needs-review when activation depends on trust.
   - Validation: Detector tests cover global `.claude`, repo `.claude`, settings.local-style local/private files, project MCP, and trust caveats.
