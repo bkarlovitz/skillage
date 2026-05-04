@@ -10,7 +10,7 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Include all resource types from `v1_spec.md`, including MCP server, sensitive store, log/session store, profile, workspace, permission, hook, plugin, custom agent, and migration/import source.
   - Validation: Review `docs/V1_MODEL.md` against `v1_spec.md` and confirm each spec resource type, scope, and status is represented once.
 
-- [ ] **Task 1.2**: Add TypeScript inventory domain types
+- [x] **Task 1.2**: Add TypeScript inventory domain types
   - Add a new inventory model module, such as `src/lib/inventory/types.ts`, with `CapabilityClient`, `CapabilityResourceType`, `CapabilityScope`, `CapabilityStatus`, `CapabilityWarning`, `CapabilityRelationship`, `CapabilityEvidence`, and `CapabilityResource`.
   - Keep client, type, scope, and status as separate enums/unions so values like `claude-desktop`, `mcp-server`, and `project-shared` cannot be mixed.
   - Validation: `npm run test -- src/lib/inventory/types.test.ts` passes after adding model shape tests.
