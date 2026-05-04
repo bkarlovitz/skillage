@@ -188,6 +188,19 @@ struct ScannerWarning {
     evidence: Option<CapabilityEvidence>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NormalizedPath {
+    display_path: String,
+    comparable_path: String,
+    source_id: String,
+}
+
+#[derive(Debug, Clone)]
+struct ScopeEvidence {
+    scope: String,
+    evidence: CapabilityEvidence,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ScanSummary {
@@ -285,6 +298,22 @@ fn stable_source_id(path: &Path) -> String {
     }
 
     normalize_for_match(path).to_lowercase()
+}
+
+fn normalize_inventory_path(path: &Path) -> NormalizedPath {
+    let display_path = path.to_string_lossy().to_string();
+    let source_id = stable_source_id(path);
+    let comparable_path = if source_id.starts_with("wsl/") {
+        format!("wsl://{}", source_id.trim_start_matches("wsl/"))
+    } else {
+        normalize_for_match(path).to_lowercase()
+    };
+
+    NormalizedPath {
+        display_path,
+        comparable_path,
+        source_id,
+    }
 }
 
 fn dedupe_roots(roots: Vec<PathBuf>) -> Vec<PathBuf> {
@@ -407,11 +436,69 @@ fn scope_for_path(path: &Path) -> &'static str {
         "plugin-bundled"
     } else if normalized.contains("/.local/") || normalized.ends_with(".local.json") || normalized.ends_with(".local.md") {
         "local-private"
-    } else if normalized.contains("/home/") || normalized.contains("/users/") || normalized.starts_with("~/") {
+    } else if normalized.starts_with("~/")
+        || normalized.contains("/.claude/")
+        || normalized.contains("/.codex/")
+        || normalized.contains("/.agents/")
+        || normalized.contains("/.cursor/")
+        || normalized.contains("/.hermes/")
+        || normalized.contains("/.openclaw/")
+    {
         "global"
     } else {
         "project-shared"
     }
+}
+
+fn scope_evidence(scope: &str, path: &Path) -> ScopeEvidence {
+    ScopeEvidence {
+        scope: scope.to_string(),
+        evidence: CapabilityEvidence {
+            source_path: Some(path.to_string_lossy().to_string()),
+            source_label: Some(format!("{scope} scope evidence")),
+            scanner_rule: Some(format!("scope:{scope}")),
+            matched_path_pattern: Some(normalize_inventory_path(path).comparable_path),
+            parsed_key_path: None,
+            included_from_path: None,
+            read_status: "read".to_string(),
+            parse_status: "not-applicable".to_string(),
+        },
+    }
+}
+
+#[cfg(test)]
+fn global_scope(path: &Path) -> ScopeEvidence {
+    scope_evidence("global", path)
+}
+
+#[cfg(test)]
+fn project_shared_scope(path: &Path) -> ScopeEvidence {
+    scope_evidence("project-shared", path)
+}
+
+#[cfg(test)]
+fn local_private_scope(path: &Path) -> ScopeEvidence {
+    scope_evidence("local-private", path)
+}
+
+#[cfg(test)]
+fn profile_scope(path: &Path) -> ScopeEvidence {
+    scope_evidence("profile", path)
+}
+
+#[cfg(test)]
+fn managed_admin_scope(path: &Path) -> ScopeEvidence {
+    scope_evidence("managed-admin", path)
+}
+
+#[cfg(test)]
+fn plugin_bundled_scope(path: &Path) -> ScopeEvidence {
+    scope_evidence("plugin-bundled", path)
+}
+
+#[cfg(test)]
+fn unknown_scope(path: &Path) -> ScopeEvidence {
+    scope_evidence("unknown", path)
 }
 
 fn content_preview_for_policy(policy: ScannerReadPolicy) -> ContentPreview {
@@ -463,7 +550,9 @@ fn resource_from_file(path: &Path, size_bytes: u64) -> CapabilityResource {
     let resource_type = resource_type_for_path(path).to_string();
     let read_policy = read_policy_for_path(path);
     let scope = scope_for_path(path).to_string();
-    let display_path = path.to_string_lossy().to_string();
+    let scope_details = scope_evidence(&scope, path);
+    let normalized_path = normalize_inventory_path(path);
+    let display_path = normalized_path.display_path.clone();
     let name = if basename(path) == "SKILL.md" {
         path.parent()
             .and_then(|parent| parent.file_name())
@@ -491,20 +580,22 @@ fn resource_from_file(path: &Path, size_bytes: u64) -> CapabilityResource {
         description: format!("{client} {resource_type} discovered by local scanner."),
         client,
         resource_type: resource_type.clone(),
-        scope,
+        scope: scope_details.scope,
         status: status.to_string(),
         statuses,
         preview_policy: Some(read_policy.as_preview_policy().to_string()),
         content_preview: Some(content_preview_for_policy(read_policy)),
         path: Some(display_path),
-        evidence: vec![source_evidence(path, read_policy)],
+        evidence: vec![source_evidence(path, read_policy), scope_details.evidence],
         warnings: Vec::new(),
         relationships: Vec::new(),
         tags: vec![resource_type],
         metadata: serde_json::json!({
             "sizeBytes": size_bytes,
             "scannerContract": "structured-v1",
-            "readPolicy": read_policy.as_preview_policy()
+            "readPolicy": read_policy.as_preview_policy(),
+            "normalizedPath": normalized_path.comparable_path,
+            "sourceId": normalized_path.source_id
         }),
     }
 }
@@ -845,5 +936,59 @@ mod tests {
         assert_eq!(deduped.len(), 2);
         assert_eq!(deduped[0], PathBuf::from(r"\\wsl.localhost\Ubuntu\home\alice\.codex"));
         assert_eq!(deduped[1], PathBuf::from(r"\\wsl.localhost\Debian\home\alice\.codex"));
+    }
+
+    #[test]
+    fn normalizes_posix_windows_and_wsl_paths_without_losing_display_path() {
+        let posix = PathBuf::from("/home/user/repo");
+        let windows = PathBuf::from(r"C:\Users\user\repo");
+        let wsl_localhost = PathBuf::from(r"\\wsl.localhost\Ubuntu\home\user\repo");
+        let wsl_legacy = PathBuf::from(r"\\wsl$\Ubuntu\home\user\repo");
+
+        assert_eq!(normalize_inventory_path(&posix).display_path, "/home/user/repo");
+        assert_eq!(normalize_inventory_path(&posix).comparable_path, "/home/user/repo");
+        assert_eq!(normalize_inventory_path(&windows).comparable_path, "c:/users/user/repo");
+        assert_eq!(normalize_inventory_path(&wsl_localhost).comparable_path, "wsl://ubuntu/home/user/repo");
+        assert_eq!(normalize_inventory_path(&wsl_localhost).source_id, normalize_inventory_path(&wsl_legacy).source_id);
+    }
+
+    #[test]
+    fn scope_primitives_cover_v1_scope_model() {
+        let path = PathBuf::from("/repo/AGENTS.md");
+        let scopes = [
+            global_scope(&path),
+            project_shared_scope(&path),
+            local_private_scope(&path),
+            profile_scope(&path),
+            managed_admin_scope(&path),
+            plugin_bundled_scope(&path),
+            unknown_scope(&path),
+        ];
+
+        assert_eq!(
+            scopes.iter().map(|scope| scope.scope.as_str()).collect::<Vec<_>>(),
+            vec![
+                "global",
+                "project-shared",
+                "local-private",
+                "profile",
+                "managed-admin",
+                "plugin-bundled",
+                "unknown"
+            ]
+        );
+        assert!(scopes.iter().all(|scope| scope.evidence.scanner_rule.as_deref().unwrap_or_default().starts_with("scope:")));
+    }
+
+    #[test]
+    fn scope_detection_keeps_home_repositories_project_shared() {
+        assert_eq!(scope_for_path(&PathBuf::from("/home/user/repo/AGENTS.md")), "project-shared");
+        assert_eq!(scope_for_path(&PathBuf::from(r"C:\Users\user\repo\AGENTS.md")), "project-shared");
+        assert_eq!(
+            scope_for_path(&PathBuf::from(r"\\wsl.localhost\Ubuntu\home\user\repo\AGENTS.md")),
+            "project-shared"
+        );
+        assert_eq!(scope_for_path(&PathBuf::from("/home/user/.codex/config.toml")), "global");
+        assert_eq!(scope_for_path(&PathBuf::from("/etc/codex/config.toml")), "managed-admin");
     }
 }

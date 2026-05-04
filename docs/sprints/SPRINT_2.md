@@ -30,7 +30,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Add stable source IDs for UNC paths so resource identity does not change between namespaces.
   - Validation: Pure Rust tests simulate both UNC namespaces and prove duplicate roots collapse to one logical WSL home.
 
-- [ ] **Task 2.6**: Add path normalization and scope primitives
+- [x] **Task 2.6**: Add path normalization and scope primitives
   - Normalize POSIX paths, Windows paths, and WSL UNC paths without losing the original display path.
   - Add helpers for global, project-shared, local-private, profile-scoped, managed-admin, plugin-bundled, and unknown scope evidence.
   - Validation: Path tests cover `/home/user/repo`, `C:\\Users\\user\\repo`, `\\wsl.localhost\\Ubuntu\\home\\user\\repo`, and `\\wsl$\\Ubuntu\\home\\user\\repo`.
