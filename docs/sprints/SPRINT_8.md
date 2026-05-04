@@ -9,7 +9,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Ensure raw config, auth, log, session, memory, token, credential, and cache-trace content is never displayed during normal inventory.
   - Validation: UI privacy tests prove sensitive/log/session resources never expose raw body previews.
 
-- [ ] **Task 8.2**: Add end-to-end acceptance fixtures
+- [x] **Task 8.2**: Add end-to-end acceptance fixtures
   - Create fixture scenarios for Machine Inventory, Project Inventory, Client Detail, Cross-Client View, Source-Path Clarity, and Safety outcomes from `v1_spec.md`.
   - Validation: Acceptance tests load each fixture and assert the required user-facing outcome is visible.
 

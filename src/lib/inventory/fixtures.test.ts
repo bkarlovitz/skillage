@@ -14,7 +14,13 @@ describe('inventory fixture scenarios', () => {
       'secret-warning',
       'parse-read-error',
       'not-found-clients',
-      'large-inventory'
+      'large-inventory',
+      'acceptance-machine-inventory',
+      'acceptance-project-inventory',
+      'acceptance-client-detail',
+      'acceptance-cross-client',
+      'acceptance-source-path-clarity',
+      'acceptance-safety'
     ]);
     expect(fixtureScenarios.every((scenario) => scenario.summary.dataSource === 'fixture')).toBe(true);
   });

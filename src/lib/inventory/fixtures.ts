@@ -10,7 +10,13 @@ export type InventoryFixtureScenarioId =
   | 'secret-warning'
   | 'parse-read-error'
   | 'not-found-clients'
-  | 'large-inventory';
+  | 'large-inventory'
+  | 'acceptance-machine-inventory'
+  | 'acceptance-project-inventory'
+  | 'acceptance-client-detail'
+  | 'acceptance-cross-client'
+  | 'acceptance-source-path-clarity'
+  | 'acceptance-safety';
 
 export interface InventoryFixtureScenario {
   id: InventoryFixtureScenarioId;
@@ -936,6 +942,78 @@ const largeInventoryResources = Array.from({ length: 1_200 }, (_unused, index) =
   });
 });
 
+const acceptanceProjectContext = {
+  rootPath: '/repo',
+  selectedPath: '/repo',
+  repoRootPath: '/repo',
+  scanRootPath: '/repo',
+  normalizedProjectId: '/repo',
+  displayName: 'repo',
+  trustState: 'unknown' as const,
+  gitRootStatus: 'found' as const
+};
+
+const acceptanceUnknownSource = resource({
+  id: 'acceptance-unknown-source-rule',
+  name: 'Unknown source rule',
+  description: 'A discovered rule with no path available from the source API.',
+  client: 'cursor',
+  resourceType: 'rule',
+  scope: 'unknown',
+  evidence: [{
+    scannerRule: 'acceptance-source-api',
+    matchedPathPattern: 'remote-source-record',
+    readStatus: 'read',
+    parseStatus: 'not-applicable'
+  }],
+  tags: ['acceptance', 'unknown-source']
+});
+
+const acceptanceSafetyResources = [
+  resource({
+    id: 'acceptance-auth-store',
+    name: 'Codex auth store',
+    description: 'Auth/token store presence only.',
+    client: 'codex',
+    resourceType: 'sensitive-store',
+    scope: 'global',
+    status: 'sensitive',
+    statuses: ['found', 'sensitive'],
+    path: '~/.codex/auth.json',
+    previewPolicy: 'unread-sensitive',
+    evidence: [evidence('~/.codex/auth.json', 'acceptance-sensitive-store', 'auth.json')],
+    warnings: [{ kind: 'secret-auth-concern', severity: 'info', message: 'Auth store exists; raw credential content is not previewed.' }],
+    tags: ['acceptance', 'sensitive']
+  }),
+  resource({
+    id: 'acceptance-session-store',
+    name: 'OpenClaw session memory',
+    description: 'Log/session/memory store presence only.',
+    client: 'openclaw',
+    resourceType: 'log-session-store',
+    scope: 'local-private',
+    path: '~/.openclaw/workspaces/repo/memory.json',
+    previewPolicy: 'metadata-only',
+    evidence: [evidence('~/.openclaw/workspaces/repo/memory.json', 'acceptance-log-session-store', 'memory.json')],
+    warnings: [{ kind: 'secret-auth-concern', severity: 'info', message: 'Session and memory content is represented as metadata only.' }],
+    tags: ['acceptance', 'logs', 'sessions', 'memory']
+  }),
+  ...secretWarningResources
+];
+
+const acceptanceProjectResources = [
+  ...projectResources,
+  ...secretWarningResources,
+  ...fullMachineResources.filter((resource) => [
+    'full-claude-code-project-mcp',
+    'full-codex-project-rule',
+    'full-codex-project-hook',
+    'full-cursor-project-mcp',
+    'full-openclaw-global-skill',
+    'full-openclaw-workspace-skill'
+  ].includes(resource.id))
+];
+
 export const fixtureScenarios: InventoryFixtureScenario[] = [
   {
     id: 'empty-machine',
@@ -1008,6 +1086,83 @@ export const fixtureScenarios: InventoryFixtureScenario[] = [
     label: 'Large inventory',
     description: 'Generated high-volume fixture for table filtering, sorting, and pagination safeguards.',
     summary: createEmptyScanSummary({ id: 'fixture-large-inventory', generatedAt, dataSource: 'fixture', resources: largeInventoryResources, knownClientLocations: clientLocations })
+  },
+  {
+    id: 'acceptance-machine-inventory',
+    label: 'Acceptance: machine inventory',
+    description: 'Machine inventory acceptance outcome with all clients, global/profile resources, stores, warnings, and parse/read errors.',
+    summary: createEmptyScanSummary({
+      id: 'fixture-acceptance-machine-inventory',
+      generatedAt,
+      dataSource: 'fixture',
+      resources: [...fullMachineResources, ...parseReadResources],
+      knownClientLocations: clientLocations,
+      parseErrors: parseReadParseErrors,
+      readErrors: parseReadReadErrors
+    })
+  },
+  {
+    id: 'acceptance-project-inventory',
+    label: 'Acceptance: project inventory',
+    description: 'Project inventory acceptance outcome with project-scoped resources, inherited globals, caveats, and best-effort effective rows.',
+    summary: createEmptyScanSummary({
+      id: 'fixture-acceptance-project-inventory',
+      generatedAt,
+      dataSource: 'fixture',
+      resources: acceptanceProjectResources,
+      knownClientLocations: clientLocations,
+      selectedProject: acceptanceProjectContext
+    })
+  },
+  {
+    id: 'acceptance-client-detail',
+    label: 'Acceptance: client detail',
+    description: 'Client detail acceptance outcome with known locations, grouped client resources, evidence rows, and caveats for every supported client.',
+    summary: createEmptyScanSummary({
+      id: 'fixture-acceptance-client-detail',
+      generatedAt,
+      dataSource: 'fixture',
+      resources: [...fullMachineResources, ...parseReadResources],
+      knownClientLocations: clientLocations,
+      parseErrors: parseReadParseErrors,
+      readErrors: parseReadReadErrors
+    })
+  },
+  {
+    id: 'acceptance-cross-client',
+    label: 'Acceptance: cross-client',
+    description: 'Cross-client acceptance outcome with duplicate MCP, same-name skill, and project/global shadowing examples.',
+    summary: createEmptyScanSummary({ id: 'fixture-acceptance-cross-client', generatedAt, dataSource: 'fixture', resources: fullMachineResources, knownClientLocations: clientLocations })
+  },
+  {
+    id: 'acceptance-source-path-clarity',
+    label: 'Acceptance: source-path clarity',
+    description: 'Source-path clarity acceptance outcome with known source paths and one explicit unknown-source resource.',
+    summary: createEmptyScanSummary({
+      id: 'fixture-acceptance-source-path-clarity',
+      generatedAt,
+      dataSource: 'fixture',
+      resources: [
+        fullMachineResources[0],
+        projectResources[0],
+        acceptanceUnknownSource
+      ],
+      knownClientLocations: clientLocations,
+      selectedProject: acceptanceProjectContext
+    })
+  },
+  {
+    id: 'acceptance-safety',
+    label: 'Acceptance: safety',
+    description: 'Safety acceptance outcome with sensitive stores, log/session stores, and secret warnings represented without raw content.',
+    summary: createEmptyScanSummary({
+      id: 'fixture-acceptance-safety',
+      generatedAt,
+      dataSource: 'fixture',
+      resources: acceptanceSafetyResources,
+      knownClientLocations: clientLocations,
+      selectedProject: acceptanceProjectContext
+    })
   }
 ];
 
