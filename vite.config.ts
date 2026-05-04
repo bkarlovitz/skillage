@@ -3,6 +3,10 @@ import { defineConfig, type Plugin } from 'vite';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { parseVirtualFiles } from './src/lib/adapters';
+import { capabilityResourcesFromSkillItems } from './src/lib/inventory/legacy';
+import { buildLocalScanResult } from './src/lib/inventory/localScan';
+import type { ScanSummary } from './src/lib/inventory/scan';
 
 const MAX_FILES = 2_000;
 const MAX_FILE_BYTES = 512 * 1024;
@@ -36,7 +40,7 @@ function isInteresting(filePath: string): boolean {
     || (normalized.includes('/.codex/rules/') && basename.endsWith('.rules'));
 }
 
-function scanRoot(root: string): VirtualFile[] {
+function scanRootFiles(root: string): VirtualFile[] {
   const resolved = path.resolve(root.replace(/^~(?=$|\/)/, os.homedir()));
   const files: VirtualFile[] = [];
 
@@ -74,7 +78,7 @@ function scanRoot(root: string): VirtualFile[] {
   return files;
 }
 
-function standardRoots(): string[] {
+export function standardRoots(): string[] {
   const home = os.homedir();
   return [
     path.join(home, '.claude'),
@@ -89,22 +93,44 @@ function standardRoots(): string[] {
   ].filter((candidate, index, all) => fs.existsSync(candidate) && all.indexOf(candidate) === index);
 }
 
+export function virtualFilesToDevScanSummary(files: VirtualFile[], kind: 'standard' | 'root', root = ''): ScanSummary {
+  const resources = capabilityResourcesFromSkillItems(parseVirtualFiles(files));
+  return buildLocalScanResult({
+    scanId: kind === 'standard' ? 'local-standard-scan' : 'local-root-scan',
+    rootPath: kind === 'standard' ? 'standard locations' : root,
+    rootLabel: kind === 'standard' ? 'Standard local locations' : 'Selected scan root',
+    scannerRule: kind === 'standard' ? 'standard-locations' : 'selected-root',
+    matchedPathPattern: kind === 'standard' ? 'known client homes and current working directory' : root,
+    dataSourceLabel: kind === 'standard' ? 'Local scan: standard locations' : `Local scan: ${root}`,
+    resources,
+    loadedStatus: '',
+    emptyStatus: ''
+  }).summary;
+}
+
+export function scanRoot(root: string): ScanSummary {
+  return virtualFilesToDevScanSummary(scanRootFiles(root), 'root', root);
+}
+
+export function scanStandardRoots(): ScanSummary {
+  const files = standardRoots().flatMap(scanRootFiles);
+  return virtualFilesToDevScanSummary(files, 'standard');
+}
+
 function skillageDevScanner(): Plugin {
   return {
     name: 'skillage-dev-scanner',
     configureServer(server) {
       server.middlewares.use('/api/scan-standard', (_req, res) => {
-        const files = standardRoots().flatMap(scanRoot);
         res.setHeader('content-type', 'application/json');
-        res.end(JSON.stringify(files));
+        res.end(JSON.stringify(scanStandardRoots()));
       });
 
       server.middlewares.use('/api/scan-root', (req, res) => {
         const url = new URL(req.url ?? '', 'http://localhost');
         const root = url.searchParams.get('root');
-        const files = root ? scanRoot(root) : [];
         res.setHeader('content-type', 'application/json');
-        res.end(JSON.stringify(files));
+        res.end(JSON.stringify(root ? scanRoot(root) : virtualFilesToDevScanSummary([], 'root', '')));
       });
     }
   };

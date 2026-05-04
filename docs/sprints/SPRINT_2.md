@@ -44,7 +44,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Add explicit tests for not following symlinks, including simulated Windows/WSL roots.
   - Validation: `cargo test` passes and tests prove symlink targets are not scanned.
 
-- [ ] **Task 2.9**: Align browser dev scanner with the Tauri contract
+- [x] **Task 2.9**: Align browser dev scanner with the Tauri contract
   - Update Vite dev scanner endpoints to return the same structured scan contract as the Rust backend.
   - Ensure browser production still explains that local scanning requires the desktop app.
   - Validation: `npm run test -- vite.config.test.ts` or equivalent scanner contract tests pass.
