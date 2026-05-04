@@ -325,6 +325,79 @@ function isConfig(file: DetectorFile): boolean {
   return base === 'openclaw.json' || base === 'config.json';
 }
 
+function isSensitiveStore(file: DetectorFile): boolean {
+  const normalized = comparablePath(file.path);
+  const base = basename(file.path).toLowerCase();
+  return isOpenClawFile(file)
+    && (base === '.env'
+      || base.startsWith('.env.')
+      || base.includes('credential')
+      || base.includes('auth')
+      || base.includes('secret')
+      || base.includes('token')
+      || base.endsWith('.pem')
+      || base.endsWith('.key')
+      || normalized.includes('/credentials/')
+      || normalized.includes('/secrets/')
+      || normalized.includes('/tokens/'));
+}
+
+function isLogSessionMemoryStore(file: DetectorFile): boolean {
+  const normalized = comparablePath(file.path);
+  const base = basename(file.path).toLowerCase();
+  return isOpenClawFile(file)
+    && (normalized.includes('/logs/')
+      || normalized.includes('/sessions/')
+      || normalized.includes('/transcripts/')
+      || normalized.includes('/cache/traces/')
+      || normalized.includes('/traces/')
+      || normalized.includes('/memory/')
+      || base.endsWith('.log')
+      || base.includes('session')
+      || base.includes('transcript')
+      || base.includes('trace')
+      || base === 'memory.json'
+      || base === 'memory.md');
+}
+
+function safeStoreResource(file: DetectorFile, resourceType: 'sensitive-store' | 'log-session-store'): CapabilityResource {
+  const sourceEvidence = evidence({
+    path: file.path,
+    scannerRule: resourceType === 'sensitive-store' ? 'openclaw-sensitive-store' : 'openclaw-log-session-memory-store',
+    matchedPathPattern: resourceType === 'sensitive-store' ? 'OpenClaw credentials/tokens' : 'OpenClaw logs/sessions/memory/traces',
+    readStatus: 'skipped',
+    parseStatus: 'skipped'
+  });
+
+  return resource({
+    id: `${client}:${resourceType}:${stableId(file.path)}`,
+    name: basename(file.path),
+    description: resourceType === 'sensitive-store'
+      ? 'OpenClaw credential/token store presence. Content is not read for inventory.'
+      : 'OpenClaw log/session/memory store presence. Content is not read for inventory.',
+    client,
+    resourceType,
+    scope: scopeForPath(file.path),
+    status: 'sensitive',
+    statuses: ['found', 'sensitive'],
+    path: file.path,
+    evidence: [sourceEvidence],
+    warnings: [warning('secret-auth-concern', 'info', 'OpenClaw store content is represented as metadata only.', sourceEvidence)],
+    tags: resourceType === 'sensitive-store' ? ['sensitive'] : ['logs', 'sessions', 'memory'],
+    metadata: {
+      profileName: namedSegment(file.path, 'profiles') ?? '',
+      workspaceName: namedSegment(file.path, 'workspaces') ?? '',
+      sizeBytes: file.sizeBytes ?? 0,
+      contentRead: false
+    },
+    contentPreview: {
+      policy: resourceType === 'sensitive-store' ? 'unread-sensitive' : 'metadata-only',
+      rawPreviewAllowed: false,
+      reason: 'OpenClaw sensitive/log/session/memory content is not read by default.'
+    }
+  });
+}
+
 export function detectOpenClaw(files: DetectorFile[]): DetectorResult {
   const result = emptyDetectorResult();
   const openClawFiles = files.filter(isOpenClawFile);
@@ -350,6 +423,22 @@ export function detectOpenClaw(files: DetectorFile[]): DetectorResult {
     if (workspaceName && !seenWorkspaces.has(workspaceName)) {
       seenWorkspaces.add(workspaceName);
       result.resources.push(workspaceResource(file, workspaceName));
+    }
+
+    if (isSensitiveStore(file) || isLogSessionMemoryStore(file)) {
+      const resourceType = isSensitiveStore(file) ? 'sensitive-store' : 'log-session-store';
+      const store = safeStoreResource(file, resourceType);
+      result.resources.push(store);
+      result.skippedSensitiveStores.push({
+        id: `skipped:${store.id}`,
+        client,
+        resourceType,
+        scope: store.scope,
+        path: file.path,
+        reason: 'OpenClaw sensitive/log/session/memory content is represented as metadata only.',
+        evidence: store.evidence[0]
+      });
+      continue;
     }
 
     if (isConfig(file) && file.content !== undefined) {

@@ -29,7 +29,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Use needs-review or unknown when the role cannot be proven.
   - Validation: Tests cover consumed MCP, exposed MCP, ambiguous MCP config, and relationship caveats.
 
-- [ ] **Task 4.6**: Represent OpenClaw logs, sessions, memory, and credentials safely
+- [x] **Task 4.6**: Represent OpenClaw logs, sessions, memory, and credentials safely
   - Detect logs, sessions, credentials, cache traces, token files, and memory stores as sensitive or log/session resources with metadata-only previews.
   - Validation: Tests prove no raw OpenClaw log/session/credential/memory body reaches the UI model.
 

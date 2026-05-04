@@ -113,4 +113,39 @@ describe('OpenClaw detector', () => {
     expect(server?.status).toBe('needs-review');
     expect(server?.warnings[0].message).toContain('cannot be proven');
   });
+
+  it('represents OpenClaw logs, sessions, credentials, traces, tokens, and memory safely', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/logs/latest.log',
+      content: 'raw log body',
+      sizeBytes: 12
+    }, {
+      path: '/home/user/.openclaw/sessions/latest.json',
+      content: '{"messages":["raw session body"]}',
+      sizeBytes: 33
+    }, {
+      path: '/home/user/.openclaw/credentials/token.json',
+      content: '{"token":"raw token"}',
+      sizeBytes: 21
+    }, {
+      path: '/home/user/.openclaw/cache/traces/run.json',
+      content: '{"trace":"raw trace"}',
+      sizeBytes: 21
+    }, {
+      path: '/home/user/.openclaw/workspaces/repo/memory.json',
+      content: '{"memory":"raw memory"}',
+      sizeBytes: 23
+    }]);
+    const serialized = JSON.stringify(result);
+
+    expect(result.resources.filter((resource) => resource.resourceType === 'log-session-store')).toHaveLength(4);
+    expect(result.resources.filter((resource) => resource.resourceType === 'sensitive-store')).toHaveLength(1);
+    expect(result.resources.every((resource) => resource.contentPreview?.text === undefined)).toBe(true);
+    expect(result.skippedSensitiveStores).toHaveLength(5);
+    expect(serialized).not.toContain('raw log body');
+    expect(serialized).not.toContain('raw session body');
+    expect(serialized).not.toContain('raw token');
+    expect(serialized).not.toContain('raw trace');
+    expect(serialized).not.toContain('raw memory');
+  });
 });
