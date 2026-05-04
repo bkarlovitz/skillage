@@ -12,7 +12,8 @@ describe('inventory fixture scenarios', () => {
       'duplicate-mcp-names',
       'secret-warning',
       'parse-read-error',
-      'not-found-clients'
+      'not-found-clients',
+      'large-inventory'
     ]);
     expect(fixtureScenarios.every((scenario) => scenario.summary.dataSource === 'fixture')).toBe(true);
   });
@@ -60,5 +61,14 @@ describe('inventory fixture scenarios', () => {
     expect(switchFixture('empty-machine')).toEqual([]);
     expect(switchFixture('full-machine').length).toBeGreaterThan(0);
     expect(switchFixture('secret-warning')[0].previewPolicy).toBe('redacted-preview');
+  });
+
+  it('provides a generated large fixture without raw file bodies', () => {
+    const large = getFixtureScenario('large-inventory').summary.resources;
+    const serialized = JSON.stringify(large);
+
+    expect(large).toHaveLength(1200);
+    expect(serialized).not.toContain('rawContent');
+    expect(large.some((resource) => resource.tags.includes('bucket-1'))).toBe(true);
   });
 });

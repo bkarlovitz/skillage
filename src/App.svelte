@@ -4,6 +4,7 @@
   import { summarizeCoreClients } from './lib/inventory/clientSummary';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import type { ScanSummary } from './lib/inventory/scan';
+  import { filterCapabilityResources } from './lib/inventory/tableModel';
   import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
   import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
   import { paginate, sortCapabilityResources, type SortDirection, type SortKey } from './lib/table';
@@ -36,15 +37,7 @@
   let includeInternalArtifacts = $state(false);
   const currentRuntime = runtimeLabel();
 
-  const filtered = $derived(items.filter((item) => {
-    const warningText = item.warnings.map((warning) => warning.message).join(' ');
-    const evidenceText = item.evidence.map((evidence) => `${evidence.sourcePath ?? ''} ${evidence.sourceLabel ?? ''} ${evidence.scannerRule ?? ''}`).join(' ');
-    const haystack = `${item.name} ${item.description} ${item.path ?? ''} ${item.client} ${item.resourceType} ${item.scope} ${item.status} ${item.statuses?.join(' ') ?? ''} ${item.tags.join(' ')} ${warningText} ${evidenceText}`.toLowerCase();
-    const internalArtifact = item.scope === 'plugin-bundled' && (item.metadata.legacyScope === 'cache' || item.metadata.legacyScope === 'temporary');
-    return (target === 'all' || item.client === target)
-      && (includeInternalArtifacts || !internalArtifact)
-      && haystack.includes(query.toLowerCase());
-  }));
+  const filtered = $derived(filterCapabilityResources(items, { query, target, includeInternalArtifacts }));
 
   const sorted = $derived(sortCapabilityResources(filtered, sortKey, sortDirection));
   const pageResult = $derived(paginate(sorted, { page, pageSize }));

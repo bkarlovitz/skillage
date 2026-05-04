@@ -9,7 +9,8 @@ export type InventoryFixtureScenarioId =
   | 'duplicate-mcp-names'
   | 'secret-warning'
   | 'parse-read-error'
-  | 'not-found-clients';
+  | 'not-found-clients'
+  | 'large-inventory';
 
 export interface InventoryFixtureScenario {
   id: InventoryFixtureScenarioId;
@@ -322,6 +323,29 @@ const notFoundResources = notFoundLocations.map((location) => resource({
   tags: ['client']
 }));
 
+const largeInventoryResources = Array.from({ length: 1_200 }, (_unused, index) => {
+  const clients: CapabilityClient[] = ['claude-code', 'claude-desktop', 'codex', 'cursor'];
+  const types: CapabilityResourceType[] = ['config-file', 'mcp-server', 'skill', 'rule', 'hook'];
+  const client = clients[index % clients.length];
+  const resourceType = types[index % types.length];
+  return resource({
+    id: `large-${index}`,
+    name: `Generated ${resourceType} ${index}`,
+    description: `Generated large-inventory ${resourceType} record.`,
+    client,
+    resourceType,
+    scope: index % 2 === 0 ? 'global' : 'project-shared',
+    status: index % 11 === 0 ? 'needs-review' : 'found',
+    path: `/fixtures/large/${client}/${resourceType}-${index}.json`,
+    evidence: [evidence(`/fixtures/large/${client}/${resourceType}-${index}.json`, 'large-fixture', '/fixtures/large/**/*')],
+    tags: ['large-fixture', `bucket-${index % 40}`],
+    metadata: {
+      index,
+      bucket: `bucket-${index % 40}`
+    }
+  });
+});
+
 export const fixtureScenarios: InventoryFixtureScenario[] = [
   {
     id: 'empty-machine',
@@ -391,6 +415,12 @@ export const fixtureScenarios: InventoryFixtureScenario[] = [
     label: 'Not-found clients',
     description: 'Known locations were checked and all supported clients are absent.',
     summary: createEmptyScanSummary({ id: 'fixture-not-found-clients', generatedAt, dataSource: 'fixture', resources: notFoundResources, knownClientLocations: notFoundLocations })
+  },
+  {
+    id: 'large-inventory',
+    label: 'Large inventory',
+    description: 'Generated high-volume fixture for table filtering, sorting, and pagination safeguards.',
+    summary: createEmptyScanSummary({ id: 'fixture-large-inventory', generatedAt, dataSource: 'fixture', resources: largeInventoryResources, knownClientLocations: clientLocations })
   }
 ];
 

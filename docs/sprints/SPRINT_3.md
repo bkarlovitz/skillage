@@ -54,7 +54,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Keep fixture mode and local scan mode visually distinct.
   - Validation: `npm run test`, `npm run check`, and `npm run build` pass; fixture demo shows all four core clients.
 
-- [ ] **Task 3.11**: Add large-inventory table safeguards
+- [x] **Task 3.11**: Add large-inventory table safeguards
   - Ensure sorting, filtering, and rendering use metadata and redacted previews rather than raw file bodies.
   - Add pagination or virtualization-friendly structures if needed for thousands of resources.
   - Validation: A generated large fixture renders without raw body search dependency and without excessive UI stalls in browser dev mode.
