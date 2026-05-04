@@ -761,6 +761,10 @@ fn should_skip_dir(path: &Path) -> bool {
     )
 }
 
+fn should_follow_symlinks_for_root(_root: &Path) -> bool {
+    false
+}
+
 fn home_dir() -> Option<PathBuf> {
     env::var_os("HOME")
         .map(PathBuf::from)
@@ -848,7 +852,7 @@ fn standard_roots() -> Vec<PathBuf> {
 fn scan_existing_root(root: &Path, max_files: usize) -> ScannerRecords {
     let mut records = ScannerRecords::default();
     let walker = WalkDir::new(root)
-        .follow_links(false)
+        .follow_links(should_follow_symlinks_for_root(root))
         .max_depth(MAX_DEPTH)
         .into_iter()
         .filter_entry(|entry| !entry.file_type().is_dir() || !should_skip_dir(entry.path()));
@@ -1147,6 +1151,63 @@ mod tests {
         let evidence = missing.evidence.expect("missing include evidence");
         assert_eq!(evidence.included_from_path.as_deref(), Some("/repo/openclaw.json"));
         assert_eq!(evidence.read_status, "not-found");
+    }
+
+    #[test]
+    fn scanner_policy_never_follows_symlinks_for_posix_windows_or_wsl_roots() {
+        let roots = [
+            PathBuf::from("/home/user/repo"),
+            PathBuf::from(r"C:\Users\user\repo"),
+            PathBuf::from(r"\\wsl.localhost\Ubuntu\home\user\repo"),
+            PathBuf::from(r"\\wsl$\Ubuntu\home\user\repo"),
+        ];
+
+        assert!(roots.iter().all(|root| !should_follow_symlinks_for_root(root)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scanner_does_not_follow_symlink_targets() {
+        use std::os::unix::fs as unix_fs;
+
+        let root = unique_test_dir("symlink-root");
+        let outside = unique_test_dir("symlink-outside");
+        fs::create_dir_all(&root).expect("create root");
+        fs::create_dir_all(&outside).expect("create outside");
+        fs::write(outside.join("AGENTS.md"), "# Outside").expect("write outside agents");
+        unix_fs::symlink(&outside, root.join("linked")).expect("create symlink");
+
+        let records = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+
+        assert!(records.resources.is_empty());
+
+        fs::remove_dir_all(root).expect("remove root");
+        fs::remove_dir_all(outside).expect("remove outside");
+    }
+
+    #[test]
+    fn scanner_respects_depth_result_and_skip_directory_bounds() {
+        let root = unique_test_dir("bounds");
+        let skipped = root.join("node_modules/pkg");
+        fs::create_dir_all(&skipped).expect("create skipped dir");
+        fs::write(skipped.join("AGENTS.md"), "# Skipped").expect("write skipped file");
+
+        let mut deep = root.clone();
+        for index in 0..=MAX_DEPTH + 2 {
+            deep = deep.join(format!("level-{index}"));
+        }
+        fs::create_dir_all(&deep).expect("create deep dir");
+        fs::write(deep.join("AGENTS.md"), "# Too deep").expect("write deep file");
+        fs::write(root.join("AGENTS.md"), "# Included").expect("write included file");
+        fs::write(root.join("CLAUDE.md"), "# Also included but max result excludes it").expect("write second included file");
+
+        let records = scan_existing_root(&root, 1);
+
+        assert_eq!(records.resources.len(), 1);
+        assert!(records.resources.iter().all(|resource| !resource.path.as_deref().unwrap_or_default().contains("node_modules")));
+        assert!(records.resources.iter().all(|resource| !resource.path.as_deref().unwrap_or_default().contains("level-")));
+
+        fs::remove_dir_all(root).expect("remove root");
     }
 
     #[test]

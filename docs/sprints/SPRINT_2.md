@@ -39,7 +39,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Return read errors, stat errors, parse errors, oversized-file skips, permission denials, and missing included files as warnings/resources instead of only logging to stderr.
   - Validation: Rust tests with unreadable or simulated error entries produce `read-error` or `needs-review` statuses.
 
-- [ ] **Task 2.8**: Keep scanner passive and bounded
+- [x] **Task 2.8**: Keep scanner passive and bounded
   - Preserve no symlink following, max depth, max file size, max result count, dependency/build directory skips, and no command execution.
   - Add explicit tests for not following symlinks, including simulated Windows/WSL roots.
   - Validation: `cargo test` passes and tests prove symlink targets are not scanned.
