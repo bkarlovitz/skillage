@@ -12,7 +12,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Add a "Found because" or equivalent evidence section showing scanner rule, matched path pattern, parsed key path, included-from path, and read/parse status.
   - Validation: UI tests or fixture assertions prove detail views expose evidence for config-derived and path-derived resources.
 
-- [ ] **Task 6.3**: Implement Claude Code detail view
+- [x] **Task 6.3**: Implement Claude Code detail view
   - Show global/project settings, skills, project MCP definitions, instruction files, commands, hooks, plugins, local/private settings, and trust warnings.
   - Make project approval/trust caveats explicit.
   - Validation: Fixture demo answers where a Claude Code project MCP server came from and why it needs review.

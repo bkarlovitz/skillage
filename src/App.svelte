@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { findCapabilityResourceById } from './lib/detail';
+  import { buildClientSpecificSections } from './lib/inventory/clientSpecificDetails';
   import { buildClientDetailModels, summarizeCoreClients } from './lib/inventory/clientSummary';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import { projectInventoryStates } from './lib/inventory/project/states';
@@ -81,6 +82,7 @@
   const clientSummaries = $derived(summarizeCoreClients(activeScanSummary));
   const clientDetailModels = $derived(buildClientDetailModels(activeScanSummary));
   const selectedClientDetail = $derived(clientDetailModels.find((detail) => detail.client === selectedClient) ?? clientDetailModels[0]);
+  const clientSpecificSections = $derived(selectedClientDetail ? buildClientSpecificSections(selectedClientDetail) : []);
   const coreClientPanels = $derived(clientSummaries.map((summary) => {
     const groups = Object.values(summary.resources.reduce<Record<string, { resourceType: string; rows: CapabilityResource[] }>>((accumulator, resource) => {
       const group = accumulator[resource.resourceType] ?? { resourceType: resource.resourceType, rows: [] };
@@ -850,6 +852,31 @@
                 {/each}
               </div>
             </section>
+
+            {#if clientSpecificSections.length}
+              <section class="detail-section">
+                <h3>Client-specific detail</h3>
+                <div class="client-specific-grid">
+                  {#each clientSpecificSections as section}
+                    <article class="client-specific-section">
+                      <div class="project-section-header">
+                        <h3>{section.title}</h3>
+                        <span>{section.rows.length}</span>
+                      </div>
+                      <p>{section.description}</p>
+                      <div class="metadata-list">
+                        {#each section.rows as row}
+                          <button class="metadata-row button-row" onclick={() => row.resourceId ? selectItem(row.resourceId) : undefined}>
+                            <span><strong>{row.label}</strong><small>{row.value}</small>{#if row.caveat}<small>{row.caveat}</small>{/if}</span>
+                            <code>{row.path ?? 'No source path'}</code>
+                          </button>
+                        {/each}
+                      </div>
+                    </article>
+                  {/each}
+                </div>
+              </section>
+            {/if}
 
             <section class="detail-section">
               <h3>Found because</h3>

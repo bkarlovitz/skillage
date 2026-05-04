@@ -116,6 +116,21 @@ const fullMachineResources = [
     evidence: [evidence('~/.claude', 'claude-code-home', '~/.claude')]
   }),
   resource({
+    id: 'full-claude-code-project-mcp',
+    name: 'filesystem',
+    description: 'Claude Code project MCP server definition.',
+    client: 'claude-code',
+    resourceType: 'mcp-server',
+    scope: 'project-shared',
+    status: 'needs-review',
+    statuses: ['found', 'not-tested', 'needs-review'],
+    path: '/repo/.claude/mcp.json',
+    evidence: [evidence('/repo/.claude/mcp.json', 'claude-code-mcp', '.claude/mcp.json', 'mcpServers.filesystem')],
+    warnings: [{ kind: 'scope-concern', severity: 'warning', message: 'Project-scoped Claude Code MCP activation depends on project trust and needs review.' }],
+    tags: ['mcp'],
+    metadata: { trustGated: true }
+  }),
+  resource({
     id: 'full-claude-desktop-github',
     name: 'github',
     description: 'Claude Desktop global MCP server definition.',
