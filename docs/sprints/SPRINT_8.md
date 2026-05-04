@@ -38,7 +38,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Include both UNC namespaces, duplicate handling, WSL home discovery, and secret/log redaction checks.
   - Validation: Checklist exists in docs and references the exact commands and expected UI results.
 
-- [ ] **Task 8.9**: Run packaging quality gates
+- [x] **Task 8.9**: Run packaging quality gates
   - Run the standard web and desktop checks in supported environments.
   - Capture any environment-specific limitations clearly in docs rather than hiding them.
   - Validation: `npm run test`, `cargo test`, `npm run check`, `npm run build`, and `npm run tauri:build` pass where the environment supports them.
