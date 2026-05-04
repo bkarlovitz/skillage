@@ -43,7 +43,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Represent found, likely-active, inherited, unknown, needs-review, not-tested, trust-gated, disabled, blocked, shadowed, and overridden as data, not just UI text.
   - Validation: Tests verify project resources are not marked active unless evidence supports it.
 
-- [ ] **Task 5.9**: Add project trust and risk warnings
+- [x] **Task 5.9**: Add project trust and risk warnings
   - Warn for project MCP servers, hooks, commands, broad permissions, inline secret-like values, executable config, local/private files not visible to collaborators, and shared files likely committed.
   - Validation: Warning tests cover each project risk category.
 

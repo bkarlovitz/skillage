@@ -7,6 +7,7 @@ import type { CapabilityClient, CapabilityResource } from '../types';
 import { withProjectActivationData } from './activation';
 import { classifyGitFileState, gitFileMetadata, withGitMetadata } from './git';
 import type { GitCommandRunner } from './context';
+import { withProjectRiskWarnings } from './risks';
 import { classifyProjectPathScope } from './scope';
 
 export interface ProjectInventoryScanInput {
@@ -117,6 +118,7 @@ export async function scanProjectInventory(input: ProjectInventoryScanInput): Pr
   const syntheticStorePaths = new Set(safeStores.resources.map((item) => item.path).filter((path): path is string => Boolean(path)));
   const detectorResources = detected.resources.filter((item) => !(item.path && syntheticStorePaths.has(item.path) && item.resourceType === 'config-file'));
   const resources = (await attachGitMetadata([...detectorResources, ...safeStores.resources], input.context, input.runGit))
+    .map(withProjectRiskWarnings)
     .map(withProjectActivationData);
 
   return createEmptyScanSummary({
