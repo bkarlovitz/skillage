@@ -232,9 +232,64 @@ describe('core client summaries', () => {
     expect(detail.summary.sensitiveStoreCount).toBe(1);
     expect(detail.summary.parseErrorCount).toBe(1);
     expect(detail.resourceGroups.map((group) => group.resourceType)).toEqual(['config-file', 'rule']);
+    expect(detail.evidenceRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        resourceId: 'cursor-config',
+        scannerRule: 'test',
+        matchedPathPattern: '/home/user/.cursor/mcp.json',
+        readStatus: 'read',
+        parseStatus: 'parse-error'
+      }),
+      expect.objectContaining({
+        resourceId: 'cursor-rule',
+        sourcePath: '/cursor-rule',
+        parseStatus: 'parsed'
+      })
+    ]));
     expect(detail.parseErrors).toHaveLength(1);
     expect(detail.skippedSensitiveStores).toHaveLength(1);
     expect(detail.caveats).toContain('Malformed Cursor MCP');
+  });
+
+  it('exposes config-derived and path-derived source evidence for client detail views', () => {
+    const configEvidence: CapabilityEvidence = {
+      ...baseEvidence('/repo/.cursor/mcp.json'),
+      scannerRule: 'cursor-project-mcp',
+      matchedPathPattern: '.cursor/mcp.json',
+      parsedKeyPath: 'mcpServers.github',
+      includedFromPath: '/repo/.cursor/base.json'
+    };
+    const pathEvidence: CapabilityEvidence = {
+      ...baseEvidence('/repo/.cursor/rules/style.mdc', 'not-applicable'),
+      scannerRule: 'cursor-mdc-rule',
+      matchedPathPattern: '.cursor/rules/*.mdc'
+    };
+    const detail = buildClientDetailModel(summary({
+      resources: [
+        resource({ id: 'cursor-mcp', client: 'cursor', resourceType: 'mcp-server', status: 'found', evidence: [configEvidence] }),
+        resource({ id: 'cursor-rule', client: 'cursor', resourceType: 'rule', status: 'found', evidence: [pathEvidence] })
+      ]
+    }), 'cursor');
+
+    expect(detail.evidenceRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        resourceId: 'cursor-mcp',
+        scannerRule: 'cursor-project-mcp',
+        matchedPathPattern: '.cursor/mcp.json',
+        parsedKeyPath: 'mcpServers.github',
+        includedFromPath: '/repo/.cursor/base.json',
+        readStatus: 'read',
+        parseStatus: 'parsed'
+      }),
+      expect.objectContaining({
+        resourceId: 'cursor-rule',
+        scannerRule: 'cursor-mdc-rule',
+        matchedPathPattern: '.cursor/rules/*.mdc',
+        sourcePath: '/repo/.cursor/rules/style.mdc',
+        readStatus: 'read',
+        parseStatus: 'not-applicable'
+      })
+    ]));
   });
 
   it('builds detail view models for every supported client state', () => {

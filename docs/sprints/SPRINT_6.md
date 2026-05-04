@@ -8,7 +8,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Create `ClientSummary` and detail view models with installed/configured/partially-configured/not-found state, known locations, readable/parseable status, resource counts, sensitive store counts, and caveats.
   - Validation: Summary model tests cover all client states and caveat aggregation.
 
-- [ ] **Task 6.2**: Show source evidence in detail views
+- [x] **Task 6.2**: Show source evidence in detail views
   - Add a "Found because" or equivalent evidence section showing scanner rule, matched path pattern, parsed key path, included-from path, and read/parse status.
   - Validation: UI tests or fixture assertions prove detail views expose evidence for config-derived and path-derived resources.
 

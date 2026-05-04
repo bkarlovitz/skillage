@@ -30,6 +30,20 @@ export interface ClientResourceGroup {
   resources: CapabilityResource[];
 }
 
+export interface ClientEvidenceRow {
+  resourceId: string;
+  resourceName: string;
+  resourceType: CapabilityResourceType;
+  sourcePath?: string;
+  sourceLabel?: string;
+  scannerRule?: string;
+  matchedPathPattern?: string;
+  parsedKeyPath?: string;
+  includedFromPath?: string;
+  readStatus: string;
+  parseStatus: string;
+}
+
 export interface ClientDetailViewModel {
   client: CoreInventoryClient;
   title: string;
@@ -42,6 +56,7 @@ export interface ClientDetailViewModel {
   parseErrors: ScanParseError[];
   skippedSensitiveStores: SkippedSensitiveStore[];
   scannerWarnings: ScannerWarning[];
+  evidenceRows: ClientEvidenceRow[];
   caveats: string[];
 }
 
@@ -152,6 +167,19 @@ export function buildClientDetailModel(summary: ScanSummary, client: CoreInvento
     groups[item.resourceType] = group;
     return groups;
   }, {})).sort((left, right) => left.resourceType.localeCompare(right.resourceType));
+  const evidenceRows = resources.flatMap((resource) => resource.evidence.map((item): ClientEvidenceRow => ({
+    resourceId: resource.id,
+    resourceName: resource.name,
+    resourceType: resource.resourceType,
+    sourcePath: item.sourcePath,
+    sourceLabel: item.sourceLabel,
+    scannerRule: item.scannerRule,
+    matchedPathPattern: item.matchedPathPattern,
+    parsedKeyPath: item.parsedKeyPath,
+    includedFromPath: item.includedFromPath,
+    readStatus: item.readStatus,
+    parseStatus: item.parseStatus
+  })));
 
   return {
     client,
@@ -165,6 +193,7 @@ export function buildClientDetailModel(summary: ScanSummary, client: CoreInvento
     parseErrors: summary.parseErrors.filter((error) => error.client === client),
     skippedSensitiveStores: summary.skippedSensitiveStores.filter((store) => store.client === client),
     scannerWarnings: summary.warnings.filter((warning) => warning.client === client),
+    evidenceRows,
     caveats: clientSummary.caveats
   };
 }

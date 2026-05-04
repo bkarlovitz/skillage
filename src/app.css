@@ -569,6 +569,9 @@ input::placeholder { color: var(--text-subtle); }
 .project-effective-scroll { max-height: 360px; }
 .project-effective-table th,
 .project-effective-table td { padding: 0 10px; }
+.evidence-scroll { max-height: 360px; }
+.evidence-table th,
+.evidence-table td { padding: 0 10px; }
 .client-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

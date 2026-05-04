@@ -852,6 +852,40 @@
             </section>
 
             <section class="detail-section">
+              <h3>Found because</h3>
+              <div class="table-scroll evidence-scroll" role="region" aria-label="Client source evidence">
+                <table class="inventory-table evidence-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Resource</th>
+                      <th scope="col">Rule</th>
+                      <th scope="col">Pattern</th>
+                      <th scope="col">Parsed key</th>
+                      <th scope="col">Included from</th>
+                      <th scope="col">Read</th>
+                      <th scope="col">Parse</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each selectedClientDetail.evidenceRows as row}
+                      <tr>
+                        <td><button class="table-name-button" onclick={() => selectItem(row.resourceId)}><strong>{row.resourceName}</strong><span>{row.sourcePath ?? row.sourceLabel ?? 'unknown source'}</span></button></td>
+                        <td>{row.scannerRule ?? 'unknown'}</td>
+                        <td>{row.matchedPathPattern ?? 'unknown'}</td>
+                        <td>{row.parsedKeyPath ?? 'not parsed'}</td>
+                        <td>{row.includedFromPath ?? 'none'}</td>
+                        <td>{row.readStatus}</td>
+                        <td>{row.parseStatus}</td>
+                      </tr>
+                    {:else}
+                      <tr><td colspan="7"><div class="empty table-empty">No source evidence for this client in this data set.</div></td></tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="detail-section">
               <h3>Caveats</h3>
               {#if selectedClientDetail.caveats.length}
                 <ul class="issues">
