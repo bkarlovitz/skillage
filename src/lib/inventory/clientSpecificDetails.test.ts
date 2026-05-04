@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildClientDetailModel } from './clientSummary';
-import { buildClaudeCodeDetailSections } from './clientSpecificDetails';
+import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections } from './clientSpecificDetails';
 import { detectClaudeCode } from './detectors/claudeCode';
+import { getFixtureScenario } from './fixtures';
 import { createEmptyScanSummary } from './scan';
+import type { KnownClientLocation } from './scan';
 
 describe('Claude Code client detail sections', () => {
   it('shows settings, skills, MCP, instructions, commands, hooks, plugins, local files, and trust caveats', () => {
@@ -59,5 +61,53 @@ describe('Claude Code client detail sections', () => {
     });
     expect(projectMcp?.rows[0].value).toContain('mcpServers.filesystem');
     expect(trust?.rows.some((row) => row.caveat?.toLowerCase().includes('trust'))).toBe(true);
+  });
+});
+
+function desktopLocation(exists: boolean): KnownClientLocation {
+  return {
+    client: 'claude-desktop',
+    label: 'Claude Desktop config',
+    path: '~/Library/Application Support/Claude/claude_desktop_config.json',
+    exists,
+    scope: 'global',
+    resourceType: 'config-file',
+    evidence: {
+      sourcePath: '~/Library/Application Support/Claude/claude_desktop_config.json',
+      scannerRule: 'claude-desktop-known-location',
+      matchedPathPattern: 'claude_desktop_config.json',
+      readStatus: exists ? 'read' : 'not-found',
+      parseStatus: exists ? 'parsed' : 'not-applicable'
+    }
+  };
+}
+
+describe('Claude Desktop client detail sections', () => {
+  it('shows exact config path, global MCP resources, logs, and restart caveat from fixtures', () => {
+    const detail = buildClientDetailModel(getFixtureScenario('full-machine').summary, 'claude-desktop');
+    const sections = buildClaudeDesktopDetailSections(detail);
+    const config = sections.find((section) => section.id === 'claude-desktop-config-path');
+    const globalMcp = sections.find((section) => section.id === 'claude-desktop-global-mcp');
+    const logs = sections.find((section) => section.id === 'claude-desktop-logs');
+    const restart = sections.find((section) => section.id === 'claude-desktop-restart');
+
+    expect(config?.rows[0].path).toBe('~/Library/Application Support/Claude/claude_desktop_config.json');
+    expect(globalMcp?.rows[0]).toMatchObject({ label: 'github', value: 'found' });
+    expect(logs?.rows[0].value).toBe('metadata-only');
+    expect(restart?.rows[0].caveat).toContain('never restarts Claude Desktop');
+  });
+
+  it('shows not-found and wrong-path state without restart action', () => {
+    const detail = buildClientDetailModel(createEmptyScanSummary({
+      knownClientLocations: [desktopLocation(false)]
+    }), 'claude-desktop');
+    const sections = buildClaudeDesktopDetailSections(detail);
+    const state = sections.find((section) => section.id === 'claude-desktop-path-state');
+
+    expect(state?.rows[0]).toMatchObject({
+      value: 'not found or wrong path',
+      path: '~/Library/Application Support/Claude/claude_desktop_config.json'
+    });
+    expect(sections.some((section) => section.id === 'claude-desktop-restart')).toBe(false);
   });
 });

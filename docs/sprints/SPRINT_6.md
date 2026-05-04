@@ -17,7 +17,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Make project approval/trust caveats explicit.
   - Validation: Fixture demo answers where a Claude Code project MCP server came from and why it needs review.
 
-- [ ] **Task 6.4**: Implement Claude Desktop detail view
+- [x] **Task 6.4**: Implement Claude Desktop detail view
   - Show exact config path, global desktop MCP resources, logs presence, restart-required caveat, and not-found/wrong-path states.
   - Validation: Fixture demo answers the exact Claude Desktop config path and displays restart caveat without any restart action.
 

@@ -1,4 +1,5 @@
 import type { ClientDetailViewModel } from './clientSummary';
+import type { KnownClientLocation } from './scan';
 import type { CapabilityResource } from './types';
 
 export interface ClientSpecificDetailRow {
@@ -31,6 +32,15 @@ function row(resource: CapabilityResource, value?: string): ClientSpecificDetail
     resourceId: resource.id,
     path: sourcePath(resource),
     caveat: firstCaveat(resource)
+  };
+}
+
+function locationRow(location: KnownClientLocation, value?: string): ClientSpecificDetailRow {
+  return {
+    label: location.label,
+    value: value ?? (location.exists ? 'found' : 'not found'),
+    path: location.path ?? location.evidence.sourcePath,
+    caveat: location.exists ? '' : 'Expected location was not found; verify client install path and platform-specific config path.'
   };
 }
 
@@ -80,7 +90,46 @@ export function buildClaudeCodeDetailSections(detail: ClientDetailViewModel): Cl
   ].filter((item) => item.rows.length > 0);
 }
 
+export function buildClaudeDesktopDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
+  const configLocations = detail.knownLocations.filter((location) => location.resourceType === 'config-file');
+  const globalMcp = detail.resources.filter((resource) => resource.resourceType === 'mcp-server' && resource.scope === 'global');
+  const logs = detail.resources.filter((resource) => resource.resourceType === 'log-session-store');
+  const missingLocations = configLocations.filter((location) => !location.exists);
+  const restartRows: ClientSpecificDetailRow[] = globalMcp.length || configLocations.some((location) => location.exists)
+    ? [{
+      label: 'Restart required',
+      value: 'Config changes require restarting Claude Desktop.',
+      path: configLocations.find((location) => location.path)?.path,
+      caveat: 'This inventory never restarts Claude Desktop or performs restart actions.'
+    }]
+    : [];
+
+  return [
+    {
+      id: 'claude-desktop-config-path',
+      title: 'Exact Config Path',
+      description: 'Claude Desktop reads MCP servers from its desktop config file.',
+      rows: configLocations.map((location) => locationRow(location))
+    },
+    section('claude-desktop-global-mcp', 'Global Desktop MCP', 'Claude Desktop MCP servers are global desktop resources.', globalMcp, (resource) => resource.status),
+    section('claude-desktop-logs', 'Logs And Sessions', 'Claude Desktop log/session presence is metadata-only.', logs, (resource) => resource.previewPolicy ?? 'metadata-only'),
+    {
+      id: 'claude-desktop-restart',
+      title: 'Restart Caveat',
+      description: 'Config edits are not applied by this inventory.',
+      rows: restartRows
+    },
+    {
+      id: 'claude-desktop-path-state',
+      title: 'Not-Found/Wrong-Path State',
+      description: 'Missing expected paths are represented without trying alternate unsafe locations.',
+      rows: missingLocations.map((location) => locationRow(location, 'not found or wrong path'))
+    }
+  ].filter((item) => item.rows.length > 0);
+}
+
 export function buildClientSpecificSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   if (detail.client === 'claude-code') return buildClaudeCodeDetailSections(detail);
+  if (detail.client === 'claude-desktop') return buildClaudeDesktopDetailSections(detail);
   return [];
 }

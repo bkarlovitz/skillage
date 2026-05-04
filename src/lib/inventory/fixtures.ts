@@ -143,6 +143,18 @@ const fullMachineResources = [
     tags: ['mcp']
   }),
   resource({
+    id: 'full-claude-desktop-logs',
+    name: 'Claude Desktop logs',
+    description: 'Claude Desktop log/session presence represented as metadata only.',
+    client: 'claude-desktop',
+    resourceType: 'log-session-store',
+    scope: 'global',
+    status: 'found',
+    path: '~/Library/Application Support/Claude/logs',
+    evidence: [evidence('~/Library/Application Support/Claude/logs', 'claude-desktop-log-session', 'Claude logs/sessions')],
+    tags: ['logs', 'sessions']
+  }),
+  resource({
     id: 'full-codex-agents',
     name: 'AGENTS.md',
     description: 'Project instructions discovered for Codex.',
