@@ -13,7 +13,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Create fixture scenarios for Machine Inventory, Project Inventory, Client Detail, Cross-Client View, Source-Path Clarity, and Safety outcomes from `v1_spec.md`.
   - Validation: Acceptance tests load each fixture and assert the required user-facing outcome is visible.
 
-- [ ] **Task 8.3**: Add passive scanner audit tests
+- [x] **Task 8.3**: Add passive scanner audit tests
   - Prove normal inventory does not modify files, install packages, start MCP servers, authenticate to services, invoke shell commands from config, or deeply ingest logs/sessions.
   - Validation: Scanner audit tests use fixtures with executable-looking MCP commands and verify no process execution occurs.
 
