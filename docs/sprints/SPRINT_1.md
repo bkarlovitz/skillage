@@ -35,7 +35,7 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Remove create/edit/draft affordances from the app shell because they are not part of this phase.
   - Validation: `npm run check` passes and the app renders all four top-level views from fixture data.
 
-- [ ] **Task 1.7**: Migrate table and detail helpers to capability resources
+- [x] **Task 1.7**: Migrate table and detail helpers to capability resources
   - Update sorting, filtering, selection, detail lookup, and count helpers so they operate on `CapabilityResource` view models rather than `SkillItem`.
   - Quarantine or remove old `SkillItem` flows only after equivalent fixture tests exist.
   - Validation: Existing table/detail tests are migrated and `npm run test -- src/lib` passes.

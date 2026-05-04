@@ -1,31 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { paginate, sortSkillItems, type SortKey } from './table';
-import type { SkillItem } from './types';
+import { paginate, sortCapabilityResources, type SortKey } from './table';
+import type { CapabilityResource } from './inventory/types';
 
-function skill(overrides: Partial<SkillItem> & Pick<SkillItem, 'id' | 'name'>): SkillItem {
+function resource(overrides: Partial<CapabilityResource> & Pick<CapabilityResource, 'id' | 'name'>): CapabilityResource {
   return {
     id: overrides.id,
     name: overrides.name,
     description: overrides.description ?? `${overrides.name} description`,
-    target: overrides.target ?? 'claude-code',
-    kind: overrides.kind ?? 'skill',
+    client: overrides.client ?? 'claude-code',
+    resourceType: overrides.resourceType ?? 'skill',
     scope: overrides.scope ?? 'global',
+    status: overrides.status ?? 'found',
     path: overrides.path ?? `/tmp/${overrides.name}/SKILL.md`,
-    entryFile: overrides.entryFile ?? 'SKILL.md',
-    body: overrides.body ?? `# ${overrides.name}`,
+    previewPolicy: overrides.previewPolicy ?? 'safe-markdown-preview',
+    evidence: overrides.evidence ?? [{
+      sourcePath: overrides.path ?? `/tmp/${overrides.name}/SKILL.md`,
+      scannerRule: 'test',
+      matchedPathPattern: 'test',
+      readStatus: 'read',
+      parseStatus: 'parsed'
+    }],
     tags: overrides.tags ?? [],
     metadata: overrides.metadata ?? {},
-    issues: overrides.issues ?? []
+    warnings: overrides.warnings ?? [],
+    relationships: overrides.relationships ?? []
   };
 }
 
-function skills(count: number): SkillItem[] {
-  return Array.from({ length: count }, (_, index) => skill({ id: `${index + 1}`, name: `skill-${String(index + 1).padStart(2, '0')}` }));
+function resources(count: number): CapabilityResource[] {
+  return Array.from({ length: count }, (_, index) => resource({ id: `${index + 1}`, name: `skill-${String(index + 1).padStart(2, '0')}` }));
 }
 
 describe('paginate', () => {
   it('returns the first page with display bounds', () => {
-    const result = paginate(skills(60), { page: 1, pageSize: 25 });
+    const result = paginate(resources(60), { page: 1, pageSize: 25 });
 
     expect(result.rows).toHaveLength(25);
     expect(result.rows[0].id).toBe('1');
@@ -38,7 +46,7 @@ describe('paginate', () => {
   });
 
   it('returns the final partial page with display bounds', () => {
-    const result = paginate(skills(60), { page: 3, pageSize: 25 });
+    const result = paginate(resources(60), { page: 3, pageSize: 25 });
 
     expect(result.rows).toHaveLength(10);
     expect(result.rows[0].id).toBe('51');
@@ -50,7 +58,7 @@ describe('paginate', () => {
   });
 
   it('clamps pages above the available range', () => {
-    const result = paginate(skills(10), { page: 99, pageSize: 25 });
+    const result = paginate(resources(10), { page: 99, pageSize: 25 });
 
     expect(result.page).toBe(1);
     expect(result.pageCount).toBe(1);
@@ -69,37 +77,37 @@ describe('paginate', () => {
   });
 });
 
-describe('sortSkillItems', () => {
+describe('sortCapabilityResources', () => {
   const rows = [
-    skill({ id: '2', name: 'beta', target: 'hermes', scope: 'project', path: '/z/beta.md', issues: [{ severity: 'warning', message: 'Needs description' }] }),
-    skill({ id: '1', name: 'Alpha', target: 'codex', scope: 'global', path: '/a/alpha.md', issues: [] }),
-    skill({ id: '3', name: 'gamma', target: 'claude-code', scope: 'sample', path: '/m/gamma.md', issues: [
-      { severity: 'warning', message: 'One' },
-      { severity: 'info', message: 'Two' }
+    resource({ id: '2', name: 'beta', client: 'hermes', scope: 'project-shared', path: '/z/beta.md', warnings: [{ kind: 'scope-concern', severity: 'warning', message: 'Needs description' }] }),
+    resource({ id: '1', name: 'Alpha', client: 'codex', scope: 'global', path: '/a/alpha.md', warnings: [] }),
+    resource({ id: '3', name: 'gamma', client: 'claude-code', scope: 'unknown', path: '/m/gamma.md', warnings: [
+      { kind: 'scope-concern', severity: 'warning', message: 'One' },
+      { kind: 'runtime-caveat', severity: 'info', message: 'Two' }
     ] })
   ];
 
-  it('sorts skill names case-insensitively in ascending order', () => {
-    expect(sortSkillItems(rows, 'name', 'asc').map((row) => row.name)).toEqual(['Alpha', 'beta', 'gamma']);
+  it('sorts capability names case-insensitively in ascending order', () => {
+    expect(sortCapabilityResources(rows, 'name', 'asc').map((row) => row.name)).toEqual(['Alpha', 'beta', 'gamma']);
   });
 
-  it('sorts issue counts numerically in descending order', () => {
-    expect(sortSkillItems(rows, 'issues', 'desc').map((row) => row.id)).toEqual(['3', '2', '1']);
+  it('sorts warning counts numerically in descending order', () => {
+    expect(sortCapabilityResources(rows, 'warnings', 'desc').map((row) => row.id)).toEqual(['3', '2', '1']);
   });
 
   it('uses name as a deterministic tie-breaker for equal sort values', () => {
-    const sameTarget = [
-      skill({ id: 'b', name: 'zebra', target: 'codex' }),
-      skill({ id: 'a', name: 'apple', target: 'codex' })
+    const sameClient = [
+      resource({ id: 'b', name: 'zebra', client: 'codex' }),
+      resource({ id: 'a', name: 'apple', client: 'codex' })
     ];
 
-    expect(sortSkillItems(sameTarget, 'target' satisfies SortKey, 'asc').map((row) => row.name)).toEqual(['apple', 'zebra']);
+    expect(sortCapabilityResources(sameClient, 'client' satisfies SortKey, 'asc').map((row) => row.name)).toEqual(['apple', 'zebra']);
   });
 
   it('does not mutate the input rows', () => {
     const original = [...rows];
 
-    sortSkillItems(rows, 'path', 'desc');
+    sortCapabilityResources(rows, 'path', 'desc');
 
     expect(rows).toEqual(original);
   });

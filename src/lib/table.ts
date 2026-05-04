@@ -1,6 +1,6 @@
-import type { SkillItem } from './types';
+import type { CapabilityResource } from './inventory/types';
 
-export type SortKey = 'name' | 'target' | 'kind' | 'scope' | 'origin' | 'category' | 'issues' | 'path';
+export type SortKey = 'name' | 'client' | 'resourceType' | 'scope' | 'status' | 'warnings' | 'path';
 export type SortDirection = 'asc' | 'desc';
 
 export interface PaginationState {
@@ -47,15 +47,15 @@ function compareText(a: string | undefined, b: string | undefined): number {
   return (a ?? '').localeCompare(b ?? '', undefined, { sensitivity: 'base', numeric: true });
 }
 
-function compareByKey(a: SkillItem, b: SkillItem, key: SortKey): number {
-  if (key === 'issues') {
-    return a.issues.length - b.issues.length;
+function compareByKey(a: CapabilityResource, b: CapabilityResource, key: SortKey): number {
+  if (key === 'warnings') {
+    return a.warnings.length - b.warnings.length;
   }
 
   return compareText(a[key], b[key]);
 }
 
-export function sortSkillItems(rows: SkillItem[], key: SortKey, direction: SortDirection): SkillItem[] {
+export function sortCapabilityResources(rows: CapabilityResource[], key: SortKey, direction: SortDirection): CapabilityResource[] {
   const directionMultiplier = direction === 'asc' ? 1 : -1;
 
   return [...rows].sort((a, b) => {

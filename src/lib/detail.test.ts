@@ -1,35 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { findSkillById } from './detail';
-import type { SkillItem } from './types';
+import { findCapabilityResourceById } from './detail';
+import type { CapabilityResource } from './inventory/types';
 
-function skill(id: string, name = id): SkillItem {
+function resource(id: string, name = id): CapabilityResource {
   return {
     id,
     name,
     description: `${name} description`,
-    target: 'claude-code',
-    kind: 'skill',
+    client: 'claude-code',
+    resourceType: 'skill',
     scope: 'global',
+    status: 'found',
     path: `/tmp/${name}/SKILL.md`,
-    entryFile: 'SKILL.md',
-    body: `# ${name}`,
+    previewPolicy: 'safe-markdown-preview',
+    evidence: [{
+      sourcePath: `/tmp/${name}/SKILL.md`,
+      scannerRule: 'test',
+      matchedPathPattern: 'SKILL.md',
+      readStatus: 'read',
+      parseStatus: 'parsed'
+    }],
     tags: [],
     metadata: {},
-    issues: []
+    warnings: [],
+    relationships: []
   };
 }
 
-describe('findSkillById', () => {
-  it('returns the matching skill when the id exists', () => {
-    const target = skill('target', 'Target Skill');
+describe('findCapabilityResourceById', () => {
+  it('returns the matching resource when the id exists', () => {
+    const target = resource('target', 'Target Resource');
 
-    expect(findSkillById([skill('first'), target, skill('last')], 'target')).toBe(target);
+    expect(findCapabilityResourceById([resource('first'), target, resource('last')], 'target')).toBe(target);
   });
 
   it('returns undefined when the id is empty or missing', () => {
-    const rows = [skill('first')];
+    const rows = [resource('first')];
 
-    expect(findSkillById(rows, '')).toBeUndefined();
-    expect(findSkillById(rows, 'missing')).toBeUndefined();
+    expect(findCapabilityResourceById(rows, '')).toBeUndefined();
+    expect(findCapabilityResourceById(rows, 'missing')).toBeUndefined();
   });
 });

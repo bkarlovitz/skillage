@@ -1,6 +1,6 @@
-import type { SkillItem } from './types';
+import type { CapabilityResource } from './inventory/types';
 
-export function findSkillById(items: SkillItem[], id: string): SkillItem | undefined {
+export function findCapabilityResourceById(items: CapabilityResource[], id: string): CapabilityResource | undefined {
   if (!id) return undefined;
   return items.find((item) => item.id === id);
 }

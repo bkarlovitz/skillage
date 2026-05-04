@@ -1,7 +1,6 @@
 import { createEmptyScanSummary, type KnownClientLocation, type ScanSummary } from './scan';
 import type { CapabilityClient, CapabilityEvidence, CapabilityResource, CapabilityResourceType, CapabilityScope, CapabilityStatus, ContentPreviewPolicy } from './types';
 import { defaultPreviewPolicy } from './preview';
-import type { SkillItem, SkillKind, SkillScope, SkillTarget, ValidationIssue } from '../types';
 
 export type InventoryFixtureScenarioId =
   | 'empty-machine'
@@ -399,40 +398,6 @@ export function getFixtureScenario(id: InventoryFixtureScenarioId): InventoryFix
   return fixtureScenarios.find((scenario) => scenario.id === id) ?? fixtureScenarios[0];
 }
 
-export function skillItemsFromFixtureScenario(id: InventoryFixtureScenarioId): SkillItem[] {
-  return getFixtureScenario(id).summary.resources.map(capabilityResourceToSkillItem);
-}
-
-function issueFromWarning(warning: CapabilityResource['warnings'][number]): ValidationIssue {
-  return {
-    severity: warning.severity,
-    message: warning.message
-  };
-}
-
-function capabilityResourceToSkillItem(resource: CapabilityResource): SkillItem {
-  const source = resource.evidence[0];
-  const previewNote = resource.previewPolicy === 'safe-markdown-preview'
-    ? resource.description
-    : `${resource.previewPolicy ?? 'metadata-only'}: source content is not shown in fixture inventory.`;
-
-  return {
-    id: resource.id,
-    name: resource.name,
-    description: resource.description,
-    target: resource.client as SkillTarget,
-    source: resource.client as SkillTarget,
-    kind: resource.resourceType as SkillKind,
-    scope: resource.scope as SkillScope,
-    path: resource.path ?? source?.sourcePath ?? source?.sourceLabel ?? resource.id,
-    body: previewNote,
-    tags: resource.tags,
-    metadata: {
-      status: resource.status,
-      statuses: resource.statuses ?? [resource.status],
-      previewPolicy: resource.previewPolicy ?? 'metadata-only',
-      scannerRule: source?.scannerRule ?? ''
-    },
-    issues: resource.warnings.map(issueFromWarning)
-  };
+export function resourcesFromFixtureScenario(id: InventoryFixtureScenarioId): CapabilityResource[] {
+  return getFixtureScenario(id).summary.resources;
 }

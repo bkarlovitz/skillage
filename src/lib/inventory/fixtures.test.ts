@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fixtureScenarios, getFixtureScenario, skillItemsFromFixtureScenario, type InventoryFixtureScenarioId } from './fixtures';
+import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './fixtures';
 
 describe('inventory fixture scenarios', () => {
   it('defines each required v1 demo scenario explicitly', () => {
@@ -55,10 +55,10 @@ describe('inventory fixture scenarios', () => {
   });
 
   it('switches fixture scenarios through pure data conversion without scanning', () => {
-    const switchFixture = (id: InventoryFixtureScenarioId) => skillItemsFromFixtureScenario(id);
+    const switchFixture = (id: InventoryFixtureScenarioId) => resourcesFromFixtureScenario(id);
 
     expect(switchFixture('empty-machine')).toEqual([]);
     expect(switchFixture('full-machine').length).toBeGreaterThan(0);
-    expect(switchFixture('secret-warning')[0].metadata.previewPolicy).toBe('redacted-preview');
+    expect(switchFixture('secret-warning')[0].previewPolicy).toBe('redacted-preview');
   });
 });
