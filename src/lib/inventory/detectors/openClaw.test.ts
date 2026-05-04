@@ -148,4 +148,53 @@ describe('OpenClaw detector', () => {
     expect(serialized).not.toContain('raw trace');
     expect(serialized).not.toContain('raw memory');
   });
+
+  it('infers skill shadowing from global, profile, and workspace path precedence', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/skills/build/SKILL.md',
+      content: '# Build'
+    }, {
+      path: '/home/user/.openclaw/profiles/default/skills/build/SKILL.md',
+      content: '# Build'
+    }, {
+      path: '/home/user/.openclaw/workspaces/repo/skills/build/SKILL.md',
+      content: '# Build'
+    }]);
+    const skills = result.resources.filter((resource) => resource.resourceType === 'skill');
+    const workspace = skills.find((resource) => resource.scope === 'local-private');
+    const lower = skills.filter((resource) => resource.scope !== 'local-private');
+
+    expect(workspace?.metadata.precedenceOutcome).toBe('highest-precedence');
+    expect(lower.every((resource) => resource.status === 'shadowed')).toBe(true);
+    expect(lower.every((resource) => resource.relationships[0].kind === 'shadowed-by')).toBe(true);
+  });
+
+  it('uses same-name-only needs-review when precedence is not provable', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/profiles/default/skills/build/SKILL.md',
+      content: '# Build'
+    }, {
+      path: '/home/user/.openclaw/profiles/work/skills/build/SKILL.md',
+      content: '# Build'
+    }]);
+    const skills = result.resources.filter((resource) => resource.resourceType === 'skill');
+
+    expect(skills).toHaveLength(2);
+    expect(skills.every((resource) => resource.status === 'needs-review')).toBe(true);
+    expect(skills.every((resource) => resource.metadata.precedenceOutcome === 'same-name-only')).toBe(true);
+  });
+
+  it('uses needs-review for collisions involving uncertain precedence scopes', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/skills/build/SKILL.md',
+      content: '# Build'
+    }, {
+      path: '/home/user/.openclaw/plugins/acme/skills/build/SKILL.md',
+      content: '# Build'
+    }]);
+    const skills = result.resources.filter((resource) => resource.resourceType === 'skill');
+
+    expect(skills.some((resource) => resource.scope === 'plugin-bundled')).toBe(true);
+    expect(skills.every((resource) => resource.status === 'needs-review')).toBe(true);
+  });
 });

@@ -33,7 +33,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Detect logs, sessions, credentials, cache traces, token files, and memory stores as sensitive or log/session resources with metadata-only previews.
   - Validation: Tests prove no raw OpenClaw log/session/credential/memory body reaches the UI model.
 
-- [ ] **Task 4.7**: Add OpenClaw skill precedence and shadowing hints
+- [x] **Task 4.7**: Add OpenClaw skill precedence and shadowing hints
   - Detect skill precedence or shadowing only where source paths/config provide enough evidence.
   - Use needs-review when precedence is uncertain.
   - Validation: Tests cover global/profile/workspace skill name collisions with shadowed, same-name-only, and needs-review outcomes.

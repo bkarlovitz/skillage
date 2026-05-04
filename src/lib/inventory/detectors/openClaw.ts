@@ -398,6 +398,95 @@ function safeStoreResource(file: DetectorFile, resourceType: 'sensitive-store' |
   });
 }
 
+function skillPrecedenceRank(resource: CapabilityResource): number | undefined {
+  if (resource.scope === 'local-private' && typeof resource.metadata.workspaceName === 'string' && resource.metadata.workspaceName) return 3;
+  if (resource.scope === 'profile' && typeof resource.metadata.profileName === 'string' && resource.metadata.profileName) return 2;
+  if (resource.scope === 'global') return 1;
+  return undefined;
+}
+
+function withStatus(resource: CapabilityResource, status: CapabilityResource['status']): CapabilityResource {
+  const statuses = Array.from(new Set([...(resource.statuses ?? ['found']), status]));
+  return {
+    ...resource,
+    status,
+    statuses
+  };
+}
+
+function applySkillPrecedenceHints(resources: CapabilityResource[]): CapabilityResource[] {
+  const byName = resources.reduce<Record<string, CapabilityResource[]>>((groups, item) => {
+    if (item.client === client && item.resourceType === 'skill') {
+      const key = item.name.toLowerCase();
+      groups[key] = [...(groups[key] ?? []), item];
+    }
+    return groups;
+  }, {});
+  const updates = new Map<string, CapabilityResource>();
+
+  for (const group of Object.values(byName)) {
+    if (group.length < 2) continue;
+    const ranked = group.map((item) => ({ item, rank: skillPrecedenceRank(item) }));
+    const ranks = ranked.map((entry) => entry.rank);
+    const uniqueRanks = new Set(ranks);
+    const canInfer = ranks.every((rank): rank is number => rank !== undefined)
+      && uniqueRanks.size === group.length;
+
+    if (canInfer) {
+      const rankedWithRanks = ranked as Array<{ item: CapabilityResource; rank: number }>;
+      const winner = rankedWithRanks.reduce((best, entry) => entry.rank > best.rank ? entry : best);
+      for (const entry of rankedWithRanks) {
+        if (entry.item.id === winner.item.id) continue;
+        updates.set(entry.item.id, {
+          ...withStatus(entry.item, 'shadowed'),
+          warnings: [
+            ...entry.item.warnings,
+            warning('duplication-conflict', 'info', `OpenClaw skill ${entry.item.name} appears shadowed by higher-precedence ${winner.item.scope} skill.`, entry.item.evidence[0])
+          ],
+          relationships: [
+            ...entry.item.relationships,
+            {
+              kind: 'shadowed-by',
+              targetResourceId: winner.item.id,
+              note: 'Inferred from global/profile/workspace path precedence.',
+              evidence: entry.item.evidence[0]
+            }
+          ],
+          metadata: {
+            ...entry.item.metadata,
+            precedenceOutcome: 'shadowed',
+            shadowedBy: winner.item.id
+          }
+        });
+      }
+      updates.set(winner.item.id, {
+        ...winner.item,
+        metadata: {
+          ...winner.item.metadata,
+          precedenceOutcome: 'highest-precedence'
+        }
+      });
+      continue;
+    }
+
+    for (const entry of ranked) {
+      updates.set(entry.item.id, {
+        ...withStatus(entry.item, 'needs-review'),
+        warnings: [
+          ...entry.item.warnings,
+          warning('duplication-conflict', 'warning', `OpenClaw skill ${entry.item.name} has same-name matches, but precedence cannot be proven from paths alone.`, entry.item.evidence[0])
+        ],
+        metadata: {
+          ...entry.item.metadata,
+          precedenceOutcome: 'same-name-only'
+        }
+      });
+    }
+  }
+
+  return resources.map((item) => updates.get(item.id) ?? item);
+}
+
 export function detectOpenClaw(files: DetectorFile[]): DetectorResult {
   const result = emptyDetectorResult();
   const openClawFiles = files.filter(isOpenClawFile);
@@ -493,5 +582,6 @@ export function detectOpenClaw(files: DetectorFile[]): DetectorResult {
     }
   }
 
+  result.resources = applySkillPrecedenceHints(result.resources);
   return result;
 }
