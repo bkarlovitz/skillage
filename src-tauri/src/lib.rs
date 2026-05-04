@@ -248,7 +248,7 @@ fn basename(path: &Path) -> String {
 }
 
 fn stable_id(path: &Path) -> String {
-    normalize_for_match(path)
+    stable_source_id(path)
         .chars()
         .map(|ch| {
             if ch.is_ascii_alphanumeric() || matches!(ch, ':' | '_' | '.' | '/' | '-') {
@@ -258,6 +258,46 @@ fn stable_id(path: &Path) -> String {
             }
         })
         .collect()
+}
+
+fn wsl_unc_parts(path: &Path) -> Option<Vec<String>> {
+    let normalized = normalize_for_match(path);
+    let trimmed = normalized.trim_start_matches('/');
+    let parts = trimmed
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .map(|part| part.to_string())
+        .collect::<Vec<_>>();
+
+    match parts.first().map(|part| part.to_lowercase()) {
+        Some(namespace) if namespace == "wsl.localhost" || namespace == "wsl$" => Some(parts),
+        _ => None,
+    }
+}
+
+fn stable_source_id(path: &Path) -> String {
+    if let Some(parts) = wsl_unc_parts(path) {
+        if parts.len() >= 2 {
+            let distro = parts[1].to_lowercase();
+            let rest = parts[2..].join("/").to_lowercase();
+            return format!("wsl/{distro}/{rest}");
+        }
+    }
+
+    normalize_for_match(path).to_lowercase()
+}
+
+fn dedupe_roots(roots: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut seen = HashSet::new();
+    let mut unique = Vec::new();
+
+    for root in roots {
+        if seen.insert(stable_source_id(&root)) {
+            unique.push(root);
+        }
+    }
+
+    unique
 }
 
 fn client_for_path(path: &Path) -> &'static str {
@@ -593,15 +633,7 @@ fn standard_roots() -> Vec<PathBuf> {
         roots.push(current_dir);
     }
 
-    roots
-        .into_iter()
-        .filter(|root| root.exists() && root.is_dir())
-        .fold(Vec::<PathBuf>::new(), |mut unique, root| {
-            if !unique.iter().any(|existing| existing == &root) {
-                unique.push(root);
-            }
-            unique
-        })
+    dedupe_roots(roots.into_iter().filter(|root| root.exists() && root.is_dir()).collect())
 }
 
 fn scan_existing_root(root: &Path, max_files: usize) -> Vec<CapabilityResource> {
@@ -787,5 +819,31 @@ mod tests {
         assert!(!serialized.contains("raw trace"));
 
         fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn stable_source_ids_collapse_wsl_unc_namespaces() {
+        let localhost = PathBuf::from(r"\\wsl.localhost\Ubuntu\home\alice\.claude\settings.json");
+        let legacy = PathBuf::from(r"\\wsl$\Ubuntu\home\alice\.claude\settings.json");
+
+        assert_eq!(stable_source_id(&localhost), stable_source_id(&legacy));
+        assert_eq!(
+            stable_source_id(&localhost),
+            "wsl/ubuntu/home/alice/.claude/settings.json"
+        );
+    }
+
+    #[test]
+    fn duplicate_wsl_roots_collapse_to_one_logical_root() {
+        let roots = vec![
+            PathBuf::from(r"\\wsl.localhost\Ubuntu\home\alice\.codex"),
+            PathBuf::from(r"\\wsl$\Ubuntu\home\alice\.codex"),
+            PathBuf::from(r"\\wsl.localhost\Debian\home\alice\.codex"),
+        ];
+        let deduped = dedupe_roots(roots);
+
+        assert_eq!(deduped.len(), 2);
+        assert_eq!(deduped[0], PathBuf::from(r"\\wsl.localhost\Ubuntu\home\alice\.codex"));
+        assert_eq!(deduped[1], PathBuf::from(r"\\wsl.localhost\Debian\home\alice\.codex"));
     }
 }

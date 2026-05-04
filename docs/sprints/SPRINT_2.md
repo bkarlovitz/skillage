@@ -24,7 +24,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Represent missing locations as known-but-not-found evidence for client status calculations.
   - Validation: Registry tests cover each client and each supported OS family.
 
-- [ ] **Task 2.5**: Preserve and extend Windows build support for WSL homes
+- [x] **Task 2.5**: Preserve and extend Windows build support for WSL homes
   - Keep discovery of WSL distro homes through both `\\wsl.localhost` and `\\wsl$` for Windows builds.
   - Add duplicate suppression when both UNC namespaces expose the same distro/home.
   - Add stable source IDs for UNC paths so resource identity does not change between namespaces.
