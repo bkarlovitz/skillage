@@ -40,7 +40,7 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Quarantine or remove old `SkillItem` flows only after equivalent fixture tests exist.
   - Validation: Existing table/detail tests are migrated and `npm run test -- src/lib` passes.
 
-- [ ] **Task 1.8**: Replace misleading empty-scan behavior
+- [x] **Task 1.8**: Replace misleading empty-scan behavior
   - Ensure an empty local scan stays empty and shows an explicit empty state instead of restoring sample data.
   - Keep fixture/demo mode available through a deliberate UI choice or dev-only control.
   - Validation: Add a regression test proving a real empty scan does not load fixture data.
