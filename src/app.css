@@ -583,6 +583,7 @@ input::placeholder { color: var(--text-subtle); }
   box-shadow: var(--shadow-md);
 }
 .client-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.client-card-actions { display: flex; align-items: center; gap: 8px; }
 .client-card h3 { margin-bottom: 0; }
 .client-status {
   border-radius: 999px;

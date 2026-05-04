@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeCoreClients } from './clientSummary';
+import { buildClientDetailModel, buildClientDetailModels, summarizeCoreClients } from './clientSummary';
 import { createEmptyScanSummary, type KnownClientLocation, type ScanSummary } from './scan';
 import type { CapabilityClient, CapabilityEvidence, CapabilityResource } from './types';
 
@@ -184,5 +184,84 @@ describe('core client summaries', () => {
 
     expect(summaries.find((item) => item.client === 'hermes')?.status).toBe('not-found');
     expect(summaries.find((item) => item.client === 'openclaw')?.status).toBe('not-found');
+  });
+
+  it('builds client detail view models with locations, counts, grouped resources, stores, and caveats', () => {
+    const parseEvidence = baseEvidence('/home/user/.cursor/mcp.json', 'parse-error');
+    const scan = summary({
+      resources: [
+        resource({
+          id: 'cursor-config',
+          client: 'cursor',
+          resourceType: 'config-file',
+          status: 'parse-error',
+          evidence: [parseEvidence],
+          warnings: [{ kind: 'parse-read-problem', severity: 'error', message: 'Malformed Cursor MCP', evidence: parseEvidence }]
+        }),
+        resource({
+          id: 'cursor-rule',
+          client: 'cursor',
+          resourceType: 'rule',
+          status: 'found'
+        })
+      ],
+      knownClientLocations: [location('cursor', true)],
+      parseErrors: [{
+        id: 'cursor-parse',
+        client: 'cursor',
+        path: '/home/user/.cursor/mcp.json',
+        message: 'Malformed Cursor MCP',
+        evidence: parseEvidence
+      }],
+      skippedSensitiveStores: [{
+        id: 'cursor-skipped',
+        client: 'cursor',
+        resourceType: 'sensitive-store',
+        scope: 'global',
+        path: '/home/user/.cursor/auth.json',
+        reason: 'Cursor auth skipped',
+        evidence: baseEvidence('/home/user/.cursor/auth.json', 'skipped', 'skipped')
+      }]
+    });
+
+    const detail = buildClientDetailModel(scan, 'cursor');
+
+    expect(detail.status).toBe('partially-configured');
+    expect(detail.knownLocations).toHaveLength(1);
+    expect(detail.summary.resourceCount).toBe(2);
+    expect(detail.summary.sensitiveStoreCount).toBe(1);
+    expect(detail.summary.parseErrorCount).toBe(1);
+    expect(detail.resourceGroups.map((group) => group.resourceType)).toEqual(['config-file', 'rule']);
+    expect(detail.parseErrors).toHaveLength(1);
+    expect(detail.skippedSensitiveStores).toHaveLength(1);
+    expect(detail.caveats).toContain('Malformed Cursor MCP');
+  });
+
+  it('builds detail view models for every supported client state', () => {
+    const details = buildClientDetailModels(summary({
+      resources: [
+        resource({ id: 'claude-code-config', client: 'claude-code', resourceType: 'config-file', status: 'found' }),
+        resource({ id: 'cursor-config', client: 'cursor', resourceType: 'config-file', status: 'parse-error', evidence: [baseEvidence('/cursor', 'parse-error')] })
+      ],
+      knownClientLocations: [
+        location('claude-code', true),
+        location('claude-desktop', true),
+        location('codex', false),
+        location('cursor', true)
+      ],
+      parseErrors: [{
+        id: 'cursor-parse',
+        client: 'cursor',
+        path: '/cursor',
+        message: 'Cursor parse failed',
+        evidence: baseEvidence('/cursor', 'parse-error')
+      }]
+    }));
+
+    expect(details.map((detail) => detail.client)).toEqual(['claude-code', 'claude-desktop', 'codex', 'cursor', 'hermes', 'openclaw']);
+    expect(details.find((detail) => detail.client === 'claude-code')?.status).toBe('configured');
+    expect(details.find((detail) => detail.client === 'claude-desktop')?.status).toBe('installed');
+    expect(details.find((detail) => detail.client === 'codex')?.status).toBe('not-found');
+    expect(details.find((detail) => detail.client === 'cursor')?.status).toBe('partially-configured');
   });
 });

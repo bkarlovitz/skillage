@@ -1,5 +1,5 @@
-import type { ScanSummary } from './scan';
-import type { CapabilityClient, CapabilityResource, CapabilityStatus } from './types';
+import type { KnownClientLocation, ScanParseError, ScannerWarning, ScanReadError, ScanSummary, SkippedSensitiveStore } from './scan';
+import type { CapabilityClient, CapabilityResource, CapabilityResourceType, CapabilityStatus } from './types';
 
 export const coreInventoryClients = ['claude-code', 'claude-desktop', 'codex', 'cursor', 'hermes', 'openclaw'] as const satisfies readonly CapabilityClient[];
 
@@ -21,6 +21,28 @@ export interface CoreClientSummary {
   logSessionStoreCount: number;
   caveats: string[];
   resources: CapabilityResource[];
+}
+
+export type ClientSummary = CoreClientSummary;
+
+export interface ClientResourceGroup {
+  resourceType: CapabilityResourceType;
+  resources: CapabilityResource[];
+}
+
+export interface ClientDetailViewModel {
+  client: CoreInventoryClient;
+  title: string;
+  status: CoreClientSummaryStatus;
+  summary: ClientSummary;
+  knownLocations: KnownClientLocation[];
+  resources: CapabilityResource[];
+  resourceGroups: ClientResourceGroup[];
+  readErrors: ScanReadError[];
+  parseErrors: ScanParseError[];
+  skippedSensitiveStores: SkippedSensitiveStore[];
+  scannerWarnings: ScannerWarning[];
+  caveats: string[];
 }
 
 const configuredResourceTypes = new Set<CapabilityResource['resourceType']>([
@@ -117,4 +139,36 @@ export function summarizeCoreClients(summary: ScanSummary): CoreClientSummary[] 
       ...counts
     };
   });
+}
+
+export function buildClientDetailModel(summary: ScanSummary, client: CoreInventoryClient): ClientDetailViewModel {
+  const clientSummary = summarizeCoreClients(summary).find((item) => item.client === client);
+  if (!clientSummary) throw new Error(`Unsupported client: ${client}`);
+
+  const resources = clientSummary.resources;
+  const resourceGroups = Object.values(resources.reduce<Record<string, ClientResourceGroup>>((groups, item) => {
+    const group = groups[item.resourceType] ?? { resourceType: item.resourceType, resources: [] };
+    group.resources.push(item);
+    groups[item.resourceType] = group;
+    return groups;
+  }, {})).sort((left, right) => left.resourceType.localeCompare(right.resourceType));
+
+  return {
+    client,
+    title: client,
+    status: clientSummary.status,
+    summary: clientSummary,
+    knownLocations: summary.knownClientLocations.filter((location) => location.client === client),
+    resources,
+    resourceGroups,
+    readErrors: summary.readErrors.filter((error) => error.client === client),
+    parseErrors: summary.parseErrors.filter((error) => error.client === client),
+    skippedSensitiveStores: summary.skippedSensitiveStores.filter((store) => store.client === client),
+    scannerWarnings: summary.warnings.filter((warning) => warning.client === client),
+    caveats: clientSummary.caveats
+  };
+}
+
+export function buildClientDetailModels(summary: ScanSummary): ClientDetailViewModel[] {
+  return coreInventoryClients.map((client) => buildClientDetailModel(summary, client));
 }

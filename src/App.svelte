@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { findCapabilityResourceById } from './lib/detail';
-  import { summarizeCoreClients } from './lib/inventory/clientSummary';
+  import { buildClientDetailModels, summarizeCoreClients } from './lib/inventory/clientSummary';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import { projectInventoryStates } from './lib/inventory/project/states';
   import type { ScanSummary } from './lib/inventory/scan';
@@ -14,7 +14,7 @@
   const targets: Array<'all' | CapabilityClient> = ['all', ...capabilityClients];
   const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
   const pageSizeOptions = [25, 50, 100];
-  type AppMode = 'machine' | 'project' | 'clients' | 'cross-client' | 'detail';
+  type AppMode = 'machine' | 'project' | 'clients' | 'client-detail' | 'cross-client' | 'detail';
   const defaultFixtureScenarioId: InventoryFixtureScenarioId = 'full-machine';
   const defaultFixtureScenario = getFixtureScenario(defaultFixtureScenarioId);
   const defaultFixtureItems = resourcesFromFixtureScenario(defaultFixtureScenarioId);
@@ -27,6 +27,7 @@
   let query = $state('');
   let target = $state<'all' | CapabilityClient>('all');
   let mode = $state<AppMode>('machine');
+  let selectedClient = $state<CapabilityClient>('claude-code');
   let scanRootPath = $state('');
   let scanStatus = $state('');
   let projectPath = $state('');
@@ -78,6 +79,8 @@
       || states.includes('found');
   }));
   const clientSummaries = $derived(summarizeCoreClients(activeScanSummary));
+  const clientDetailModels = $derived(buildClientDetailModels(activeScanSummary));
+  const selectedClientDetail = $derived(clientDetailModels.find((detail) => detail.client === selectedClient) ?? clientDetailModels[0]);
   const coreClientPanels = $derived(clientSummaries.map((summary) => {
     const groups = Object.values(summary.resources.reduce<Record<string, { resourceType: string; rows: CapabilityResource[] }>>((accumulator, resource) => {
       const group = accumulator[resource.resourceType] ?? { resourceType: resource.resourceType, rows: [] };
@@ -115,6 +118,11 @@
   function selectItem(id: string) {
     selectedId = id;
     mode = 'detail';
+  }
+
+  function selectClientDetail(client: CapabilityClient) {
+    selectedClient = client;
+    mode = 'client-detail';
   }
 
   function backToInventory() {
@@ -767,7 +775,10 @@
           <article class="client-card">
             <div class="client-card-header">
               <h3>{summary.client}</h3>
-              <span class:ok-status={summary.status === 'configured' || summary.status === 'installed'} class:partial-status={summary.status === 'partially-configured'} class="client-status">{summary.status}</span>
+              <div class="client-card-actions">
+                <span class:ok-status={summary.status === 'configured' || summary.status === 'installed'} class:partial-status={summary.status === 'partially-configured'} class="client-status">{summary.status}</span>
+                <button class="button ghost compact" onclick={() => selectClientDetail(summary.client)}>Open</button>
+              </div>
             </div>
             <dl class="meta compact-meta">
               <div><dt>Resources</dt><dd>{summary.resourceCount}</dd></div>
@@ -789,6 +800,71 @@
             </div>
           </article>
         {/each}
+      </section>
+    {:else if mode === 'client-detail'}
+      <section class="detail-page">
+        <button class="button ghost back-button" onclick={() => (mode = 'clients')}>← Back to clients</button>
+        {#if selectedClientDetail}
+          <article class="detail full-detail">
+            <div class="detail-header">
+              <div>
+                <div class="detail-kicker"><span class="badge large">{selectedClientDetail.client}</span><span>{selectedClientDetail.status}</span></div>
+                <h2>{selectedClientDetail.title}</h2>
+                <p>{selectedClientDetail.summary.resourceCount} resource{selectedClientDetail.summary.resourceCount === 1 ? '' : 's'} across {selectedClientDetail.knownLocations.length} known location{selectedClientDetail.knownLocations.length === 1 ? '' : 's'}.</p>
+              </div>
+            </div>
+
+            <dl class="meta detail-meta">
+              <div><dt>Readable</dt><dd>{selectedClientDetail.summary.readableCount}</dd></div>
+              <div><dt>Unreadable</dt><dd>{selectedClientDetail.summary.unreadableCount}</dd></div>
+              <div><dt>Parseable</dt><dd>{selectedClientDetail.summary.parseableCount}</dd></div>
+              <div><dt>Parse errors</dt><dd>{selectedClientDetail.summary.parseErrorCount}</dd></div>
+              <div><dt>Sensitive stores</dt><dd>{selectedClientDetail.summary.sensitiveStoreCount}</dd></div>
+              <div><dt>Log/session stores</dt><dd>{selectedClientDetail.summary.logSessionStoreCount}</dd></div>
+            </dl>
+
+            <section class="detail-section">
+              <h3>Known locations</h3>
+              <div class="metadata-list">
+                {#each selectedClientDetail.knownLocations as location}
+                  <div class="metadata-row">
+                    <span><strong>{location.label}</strong><code>{location.path ?? 'No path'}</code></span>
+                    <span>{location.exists ? 'found' : 'not found'}</span>
+                  </div>
+                {:else}
+                  <div class="empty small-empty">No known locations for this data set.</div>
+                {/each}
+              </div>
+            </section>
+
+            <section class="detail-section">
+              <h3>Resource groups</h3>
+              <div class="resource-list compact-list">
+                {#each selectedClientDetail.resourceGroups as group}
+                  <button class="resource-row compact-row" onclick={() => selectItem(group.resources[0].id)}>
+                    <span><strong>{group.resourceType}</strong><small>{group.resources.length} resource{group.resources.length === 1 ? '' : 's'}</small></span>
+                    <span class="resource-meta">{group.resources.map((item) => item.scope).join(', ')}</span>
+                  </button>
+                {:else}
+                  <div class="empty small-empty">No resources for this client in this data set.</div>
+                {/each}
+              </div>
+            </section>
+
+            <section class="detail-section">
+              <h3>Caveats</h3>
+              {#if selectedClientDetail.caveats.length}
+                <ul class="issues">
+                  {#each selectedClientDetail.caveats as caveat}
+                    <li class="info"><strong>info</strong><span>{caveat}</span></li>
+                  {/each}
+                </ul>
+              {:else}
+                <p class="ok">No client caveats in this data set.</p>
+              {/if}
+            </section>
+          </article>
+        {/if}
       </section>
     {:else if mode === 'cross-client'}
       <section class="topbar">
