@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { summarizeCoreClients } from './clientSummary';
 import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './fixtures';
 
 describe('inventory fixture scenarios', () => {
@@ -30,6 +31,17 @@ describe('inventory fixture scenarios', () => {
     const clients = new Set(getFixtureScenario('full-machine').summary.resources.map((resource) => resource.client));
 
     expect(clients).toEqual(new Set(['claude-code', 'claude-desktop', 'codex', 'cursor', 'hermes', 'openclaw']));
+  });
+
+  it('summarizes all six clients across found, not-found, and partial fixture states', () => {
+    const full = summarizeCoreClients(getFixtureScenario('full-machine').summary);
+    const notFound = summarizeCoreClients(getFixtureScenario('not-found-clients').summary);
+    const partial = summarizeCoreClients(getFixtureScenario('parse-read-error').summary);
+
+    expect(full.map((summary) => summary.client)).toEqual(['claude-code', 'claude-desktop', 'codex', 'cursor', 'hermes', 'openclaw']);
+    expect(full.every((summary) => summary.status === 'configured' || summary.status === 'installed')).toBe(true);
+    expect(notFound.every((summary) => summary.status === 'not-found')).toBe(true);
+    expect(partial.some((summary) => summary.status === 'partially-configured')).toBe(true);
   });
 
   it('models inherited globals, duplicates, and not-found clients as separate states', () => {

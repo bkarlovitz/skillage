@@ -48,4 +48,19 @@ describe('Vite dev scanner contract', () => {
     expect(summary.resources.some((resource) => resource.client === 'cursor' && resource.resourceType === 'mcp-server')).toBe(true);
     expect(summary.resources.find((resource) => resource.resourceType === 'mcp-server')?.scope).toBe('project-shared');
   });
+
+  it('includes Hermes and OpenClaw detectors in dev scanner summaries', () => {
+    const summary = virtualFilesToDevScanSummary([{
+      path: '/home/user/.hermes/profiles/default/config.yaml',
+      content: 'mcpServers:\n  docs:\n    url: "https://example.invalid/mcp"'
+    }, {
+      path: '/home/user/.openclaw/openclaw.json',
+      content: JSON.stringify({ gateway: { enabled: true } })
+    }], 'root', '/home/user');
+
+    expect(summary.resources.some((resource) => resource.client === 'hermes' && resource.resourceType === 'profile')).toBe(true);
+    expect(summary.resources.some((resource) => resource.client === 'hermes' && resource.resourceType === 'mcp-server')).toBe(true);
+    expect(summary.resources.some((resource) => resource.client === 'openclaw' && resource.resourceType === 'client-installation')).toBe(true);
+    expect(summary.resources.some((resource) => resource.client === 'openclaw' && resource.warnings.some((warning) => warning.message.includes('gateway/remote')))).toBe(true);
+  });
 });

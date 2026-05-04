@@ -46,7 +46,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Compute installed/configured/partially-configured/not-found status, profile counts, sensitive store counts, and caveats for both clients.
   - Validation: Summary tests cover found, not-found, partial, profile-only, and sensitive-store-only states.
 
-- [ ] **Task 4.10**: Complete Machine Inventory for all six clients
+- [x] **Task 4.10**: Complete Machine Inventory for all six clients
   - Update the Machine Inventory view so all six clients render consistently while preserving client-specific scope/profile distinctions.
   - Validation: `npm run test`, `npm run check`, and `npm run build` pass; fixture demo shows found/not-found/partial states for all six clients.
 

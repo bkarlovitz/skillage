@@ -38,12 +38,16 @@ function isInteresting(filePath: string): boolean {
     || basename === 'hooks.json'
     || basename === 'openclaw.json'
     || ((basename === 'settings.json' || basename === 'settings.local.json' || basename === 'mcp.json') && (lower.includes('/.claude/') || lower.includes('/.cursor/')))
+    || ((basename === 'config.yaml' || basename === 'config.yml' || basename === 'config.json' || basename === 'mcp.json') && lower.includes('/.hermes/'))
     || (basename === 'config.toml' && (lower.includes('/.codex/') || lower.includes('/etc/codex/')))
+    || ((basename === 'config.json' || basename === 'openclaw.json') && lower.includes('/.openclaw/'))
     || (normalized.includes('/.claude/commands/') && basename.endsWith('.md'))
     || (normalized.includes('/.claude/agents/') && basename.endsWith('.md'))
     || (normalized.includes('/.codex/agents/') && basename.endsWith('.toml'))
     || (normalized.includes('/.agents/') && (basename === 'SKILL.md' || basename === 'plugin.json' || basename === 'marketplace.json'))
     || (normalized.includes('/.cursor/rules/') && (basename.endsWith('.mdc') || basename.endsWith('.md')))
+    || (normalized.includes('/.hermes/profiles/') && basename === 'SKILL.md')
+    || (normalized.includes('/.hermes/hermes-agent/') && basename === 'SKILL.md')
     || (normalized.includes('/.openclaw/') && basename.endsWith('.md'))
     || (normalized.includes('/.claude/rules/') && basename.endsWith('.md'))
     || (normalized.includes('/.codex/rules/') && basename.endsWith('.rules'));

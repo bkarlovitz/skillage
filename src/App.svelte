@@ -322,8 +322,10 @@
             <dl class="meta compact-meta core-meta">
               <div><dt>Resources</dt><dd>{summary.resourceCount}</dd></div>
               <div><dt>Warnings</dt><dd>{summary.warningCount}</dd></div>
+              <div><dt>Profiles</dt><dd>{summary.profileCount}</dd></div>
+              <div><dt>Stores</dt><dd>{summary.sensitiveStoreCount + summary.logSessionStoreCount}</dd></div>
               <div><dt>Readable</dt><dd>{summary.readableCount}</dd></div>
-              <div><dt>Parseable</dt><dd>{summary.parseableCount}</dd></div>
+              <div><dt>Parsed</dt><dd>{summary.parseableCount}</dd></div>
             </dl>
             <div class="core-resource-groups">
               {#each summary.groups as group}
@@ -575,6 +577,8 @@
             <dl class="meta compact-meta">
               <div><dt>Resources</dt><dd>{summary.resourceCount}</dd></div>
               <div><dt>Known locations</dt><dd>{summary.knownLocationCount}</dd></div>
+              <div><dt>Profiles</dt><dd>{summary.profileCount}</dd></div>
+              <div><dt>Stores</dt><dd>{summary.sensitiveStoreCount + summary.logSessionStoreCount}</dd></div>
             </dl>
             <div class="resource-list compact-list">
               {#each summary.resources.slice(0, 4) as item (item.id)}
