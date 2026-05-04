@@ -85,4 +85,15 @@ describe('project context resolution', () => {
     expect(wslDollar.selectedPath).toBe('\\\\wsl$\\Ubuntu\\home\\user\\repo');
     expect(wslDollar.normalizedProjectId).toBe('wsl:/ubuntu/home/user/repo');
   });
+
+  it('normalizes WSL project selection when git returns the alternate UNC namespace', async () => {
+    const context = await resolveProjectContext({
+      selectedPath: '\\\\wsl.localhost\\Ubuntu\\home\\user\\repo'
+    }, gitRunner('\\\\wsl$\\Ubuntu\\home\\user\\repo\n'));
+
+    expect(context.selectedPath).toBe('\\\\wsl.localhost\\Ubuntu\\home\\user\\repo');
+    expect(context.scanRootPath).toBe('\\\\wsl$\\Ubuntu\\home\\user\\repo');
+    expect(context.displayName).toBe('repo');
+    expect(context.normalizedProjectId).toBe('wsl:/ubuntu/home/user/repo');
+  });
 });

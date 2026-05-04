@@ -49,9 +49,26 @@ describe('known location registry', () => {
     expect(windows.some((location) => location.path?.includes(String.raw`C:\Users\alice`))).toBe(true);
     expect(windows.some((location) => location.path?.includes(String.raw`AppData\Roaming`))).toBe(true);
     expect(wsl.some((location) => location.path?.startsWith(String.raw`\\wsl.localhost\Ubuntu\home\alice`))).toBe(true);
+    expect(knownLocationDefinitions.flatMap((definition) => definition.roots.wsl).some((root) => root.startsWith('\\\\wsl$\\'))).toBe(true);
     for (const client of capabilityClients) {
       expect(windows.some((location) => location.client === client), `windows ${client}`).toBe(true);
       expect(wsl.some((location) => location.client === client), `wsl ${client}`).toBe(true);
     }
+  });
+
+  it('suppresses duplicate WSL namespace locations while matching either UNC namespace', () => {
+    const locations = knownClientLocationsForPlatform('wsl', {
+      home: '/home/alice',
+      distro: 'Ubuntu',
+      wslUser: 'alice'
+    }, [
+      String.raw`\\wsl$\Ubuntu\home\alice\.codex`
+    ]);
+    const codexHomes = locations.filter((location) => location.client === 'codex' && location.path?.includes('.codex'));
+
+    expect(codexHomes).toHaveLength(1);
+    expect(codexHomes[0].path).toBe(String.raw`\\wsl.localhost\Ubuntu\home\alice\.codex`);
+    expect(codexHomes[0].exists).toBe(true);
+    expect(codexHomes[0].evidence.readStatus).toBe('read');
   });
 });

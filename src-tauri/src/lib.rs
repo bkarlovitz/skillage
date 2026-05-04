@@ -1460,6 +1460,7 @@ mod tests {
         let legacy = PathBuf::from(r"\\wsl$\Ubuntu\home\alice\.claude\settings.json");
 
         assert_eq!(stable_source_id(&localhost), stable_source_id(&legacy));
+        assert_eq!(stable_id(&localhost), stable_id(&legacy));
         assert_eq!(
             stable_source_id(&localhost),
             "wsl/ubuntu/home/alice/.claude/settings.json"
@@ -1478,6 +1479,24 @@ mod tests {
         assert_eq!(deduped.len(), 2);
         assert_eq!(deduped[0], PathBuf::from(r"\\wsl.localhost\Ubuntu\home\alice\.codex"));
         assert_eq!(deduped[1], PathBuf::from(r"\\wsl.localhost\Debian\home\alice\.codex"));
+    }
+
+    #[test]
+    fn wsl_unc_home_roots_cover_both_namespaces_for_client_discovery() {
+        for namespace in [r"\\wsl.localhost", r"\\wsl$"] {
+            let home = PathBuf::from(format!(r"{namespace}\Ubuntu\home\alice"));
+            let roots = standard_skill_roots_for_home(&home)
+                .into_iter()
+                .map(|root| root.to_string_lossy().replace('\\', "/"))
+                .collect::<Vec<_>>();
+
+            assert!(roots.iter().any(|root| root.contains("/.claude")));
+            assert!(roots.iter().any(|root| root.contains("/.codex")));
+            assert!(roots.iter().any(|root| root.contains("/.agents")));
+            assert!(roots.iter().any(|root| root.contains("/.cursor")));
+            assert!(roots.iter().any(|root| root.contains("/.hermes")));
+            assert!(roots.iter().any(|root| root.contains("/.openclaw")));
+        }
     }
 
     #[test]

@@ -20,7 +20,14 @@ export interface KnownLocationDefinition {
   roots: Record<OsFamily, string[]>;
 }
 
-const wslRoot = String.raw`\\wsl.localhost\{distro}\home\{wslUser}`;
+const wslRoots = [
+  String.raw`\\wsl.localhost\{distro}\home\{wslUser}`,
+  String.raw`\\wsl$\{distro}\home\{wslUser}`
+];
+
+function wslLocationTemplates(...suffixes: string[]): string[] {
+  return wslRoots.flatMap((root) => suffixes.map((suffix) => `${root}${suffix}`));
+}
 
 export const knownLocationDefinitions: KnownLocationDefinition[] = [
   {
@@ -33,7 +40,7 @@ export const knownLocationDefinitions: KnownLocationDefinition[] = [
       linux: ['{home}/.claude'],
       macos: ['{home}/.claude'],
       windows: [String.raw`{windowsHome}\.claude`],
-      wsl: [`${wslRoot}\\.claude`]
+      wsl: wslLocationTemplates(String.raw`\.claude`)
     }
   },
   {
@@ -46,7 +53,7 @@ export const knownLocationDefinitions: KnownLocationDefinition[] = [
       linux: ['{home}/.config/Claude/claude_desktop_config.json'],
       macos: ['{home}/Library/Application Support/Claude/claude_desktop_config.json'],
       windows: [String.raw`{appData}\Claude\claude_desktop_config.json`],
-      wsl: [`${wslRoot}/.config/Claude/claude_desktop_config.json`]
+      wsl: wslLocationTemplates('/.config/Claude/claude_desktop_config.json')
     }
   },
   {
@@ -59,7 +66,7 @@ export const knownLocationDefinitions: KnownLocationDefinition[] = [
       linux: ['{home}/.codex', '{home}/.agents', '/etc/codex'],
       macos: ['{home}/.codex', '{home}/.agents'],
       windows: [String.raw`{windowsHome}\.codex`, String.raw`{windowsHome}\.agents`],
-      wsl: [`${wslRoot}\\.codex`, `${wslRoot}\\.agents`]
+      wsl: wslLocationTemplates(String.raw`\.codex`, String.raw`\.agents`)
     }
   },
   {
@@ -72,7 +79,7 @@ export const knownLocationDefinitions: KnownLocationDefinition[] = [
       linux: ['{home}/.cursor', '{home}/.config/Cursor/User'],
       macos: ['{home}/.cursor', '{home}/Library/Application Support/Cursor/User'],
       windows: [String.raw`{windowsHome}\.cursor`, String.raw`{appData}\Cursor\User`],
-      wsl: [`${wslRoot}\\.cursor`, `${wslRoot}/.config/Cursor/User`]
+      wsl: wslLocationTemplates(String.raw`\.cursor`, '/.config/Cursor/User')
     }
   },
   {
@@ -85,7 +92,7 @@ export const knownLocationDefinitions: KnownLocationDefinition[] = [
       linux: ['{home}/.hermes', '{home}/.hermes/profiles'],
       macos: ['{home}/.hermes', '{home}/.hermes/profiles'],
       windows: [String.raw`{windowsHome}\.hermes`, String.raw`{windowsHome}\.hermes\profiles`],
-      wsl: [`${wslRoot}\\.hermes`, `${wslRoot}\\.hermes\\profiles`]
+      wsl: wslLocationTemplates(String.raw`\.hermes`, String.raw`\.hermes\profiles`)
     }
   },
   {
@@ -98,7 +105,7 @@ export const knownLocationDefinitions: KnownLocationDefinition[] = [
       linux: ['{home}/.openclaw'],
       macos: ['{home}/.openclaw'],
       windows: [String.raw`{windowsHome}\.openclaw`],
-      wsl: [`${wslRoot}\\.openclaw`]
+      wsl: wslLocationTemplates(String.raw`\.openclaw`)
     }
   }
 ];
@@ -113,17 +120,25 @@ function fillTemplate(template: string, context: KnownLocationContext): string {
 }
 
 function normalizeComparablePath(path: string): string {
-  return path.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase();
+  const slashPath = path.replace(/\\/g, '/');
+  const unc = slashPath.startsWith('//');
+  const collapsed = slashPath.replace(/\/+/g, '/');
+  const normalized = `${unc ? '/' : ''}${collapsed}`.toLowerCase();
+  return normalized.replace(/^\/\/wsl(?:\.localhost|\$)\//, 'wsl:/');
 }
 
 export function knownClientLocationsForPlatform(osFamily: OsFamily, context: KnownLocationContext, existingPaths: Iterable<string> = []): KnownClientLocation[] {
   const existing = new Set(Array.from(existingPaths, normalizeComparablePath));
+  const seen = new Set<string>();
 
-  return knownLocationDefinitions.flatMap((definition) => definition.roots[osFamily].map((template) => {
+  return knownLocationDefinitions.flatMap((definition) => definition.roots[osFamily].flatMap((template) => {
     const path = fillTemplate(template, context);
-    const exists = existing.has(normalizeComparablePath(path));
+    const comparablePath = normalizeComparablePath(path);
+    if (seen.has(`${definition.id}:${comparablePath}`)) return [];
+    seen.add(`${definition.id}:${comparablePath}`);
+    const exists = existing.has(comparablePath);
 
-    return {
+    return [{
       client: definition.client,
       label: definition.label,
       path,
@@ -137,6 +152,6 @@ export function knownClientLocationsForPlatform(osFamily: OsFamily, context: Kno
         readStatus: exists ? 'read' : 'not-found',
         parseStatus: 'not-applicable'
       }
-    } satisfies KnownClientLocation;
+    } satisfies KnownClientLocation];
   }));
 }

@@ -29,7 +29,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Add checks that Machine Inventory, Project Inventory, Client Detail, and Cross-Client views show source paths or explicit unknown-source labels for all discovered resources.
   - Validation: Acceptance tests assert source path text or unknown-source labels are present in every resource detail fixture.
 
-- [ ] **Task 8.7**: Finalize Windows/WSL regression tests
+- [x] **Task 8.7**: Finalize Windows/WSL regression tests
   - Cover `\\wsl.localhost`, `\\wsl$`, duplicate namespace suppression, WSL home discovery, WSL project selection, UNC path normalization, stable IDs, and no symlink following.
   - Validation: Rust and TypeScript path tests pass on Linux while simulating Windows/WSL inputs.
 
