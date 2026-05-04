@@ -19,7 +19,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Return warnings for inline secret-like values without exposing raw values.
   - Validation: `npm run test -- src/lib/inventory/redaction.test.ts` passes with positive and negative fixtures.
 
-- [ ] **Task 2.4**: Create a cross-platform known-location registry
+- [x] **Task 2.4**: Create a cross-platform known-location registry
   - Define known machine-level and profile-level search roots for all six clients, including Windows, macOS, Linux, and WSL-accessible homes where applicable.
   - Represent missing locations as known-but-not-found evidence for client status calculations.
   - Validation: Registry tests cover each client and each supported OS family.
