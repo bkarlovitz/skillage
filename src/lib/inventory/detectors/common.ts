@@ -4,6 +4,7 @@ import type {
   ScanParseError,
   ScanReadError,
   ScannerWarning,
+  SelectedProjectContext,
   SkippedSensitiveStore
 } from '../scan';
 import type {
@@ -29,6 +30,10 @@ export interface DetectorResult {
   parseErrors: ScanParseError[];
   skippedSensitiveStores: SkippedSensitiveStore[];
   warnings: ScannerWarning[];
+}
+
+export interface DetectorOptions {
+  projectContext?: SelectedProjectContext;
 }
 
 export interface ResourceInput {

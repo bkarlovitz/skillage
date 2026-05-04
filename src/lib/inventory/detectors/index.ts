@@ -4,14 +4,14 @@ import { detectCodex } from './codex';
 import { detectCursor } from './cursor';
 import { detectHermes } from './hermes';
 import { detectOpenClaw } from './openClaw';
-import { mergeDetectorResults, type DetectorFile, type DetectorResult } from './common';
+import { mergeDetectorResults, type DetectorFile, type DetectorOptions, type DetectorResult } from './common';
 
-export function detectCoreClients(files: DetectorFile[]): DetectorResult {
+export function detectCoreClients(files: DetectorFile[], options: DetectorOptions = {}): DetectorResult {
   return mergeDetectorResults([
     detectClaudeDesktop(files),
-    detectClaudeCode(files),
-    detectCodex(files),
-    detectCursor(files),
+    detectClaudeCode(files, options),
+    detectCodex(files, options),
+    detectCursor(files, options),
     detectHermes(files),
     detectOpenClaw(files)
   ]);

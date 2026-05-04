@@ -1,8 +1,10 @@
 import { parseFrontmatter } from '../../frontmatter';
 import { parseJsonConfig } from '../config/json';
 import { extractMcpServersFromConfig } from '../mcp';
+import { classifyProjectPathScope } from '../project/scope';
+import type { SelectedProjectContext } from '../scan';
 import type { CapabilityResource, CapabilityScope, CapabilityWarning } from '../types';
-import type { DetectorFile, DetectorResult } from './common';
+import type { DetectorFile, DetectorOptions, DetectorResult } from './common';
 import {
   basename,
   comparablePath,
@@ -31,7 +33,11 @@ function isHomeCursorPath(path: string): boolean {
   return (parts[0] === 'home' && index === 2) || (parts[0] === 'users' && index === 2);
 }
 
-function scopeForPath(path: string): CapabilityScope {
+function scopeForPath(path: string, projectContext?: SelectedProjectContext): CapabilityScope {
+  if (projectContext) {
+    const classification = classifyProjectPathScope(path, projectContext);
+    if (classification.scope !== 'unknown') return classification.scope;
+  }
   return isHomeCursorPath(path) ? 'global' : 'project-shared';
 }
 
@@ -55,8 +61,8 @@ function isLegacyRule(file: DetectorFile): boolean {
   return basename(file.path) === '.cursorrules';
 }
 
-function configResource(file: DetectorFile, parsed: ReturnType<typeof parseJsonConfig>): CapabilityResource {
-  const scope = scopeForPath(file.path);
+function configResource(file: DetectorFile, parsed: ReturnType<typeof parseJsonConfig>, projectContext?: SelectedProjectContext): CapabilityResource {
+  const scope = scopeForPath(file.path, projectContext);
   const configEvidence = {
     ...parsed.evidence,
     scannerRule: scope === 'global' ? 'cursor-global-mcp' : 'cursor-project-mcp',
@@ -108,7 +114,8 @@ function ruleWarnings(file: DetectorFile): { warnings: CapabilityWarning[]; pars
   };
 }
 
-function mdcRuleResource(file: DetectorFile): CapabilityResource {
+function mdcRuleResource(file: DetectorFile, projectContext?: SelectedProjectContext): CapabilityResource {
+  const scope = scopeForPath(file.path, projectContext);
   const sourceEvidence = evidence({
     path: file.path,
     scannerRule: 'cursor-mdc-rule',
@@ -123,7 +130,7 @@ function mdcRuleResource(file: DetectorFile): CapabilityResource {
     description: 'Cursor project MDC rule.',
     client,
     resourceType: 'rule',
-    scope: 'project-shared',
+    scope,
     status: rule.parseError ? 'parse-error' : 'found',
     path: file.path,
     evidence: [sourceEvidence],
@@ -135,7 +142,8 @@ function mdcRuleResource(file: DetectorFile): CapabilityResource {
   });
 }
 
-function legacyRuleResource(file: DetectorFile): CapabilityResource {
+function legacyRuleResource(file: DetectorFile, projectContext?: SelectedProjectContext): CapabilityResource {
+  const scope = scopeForPath(file.path, projectContext);
   const sourceEvidence = evidence({
     path: file.path,
     scannerRule: 'cursor-legacy-rule',
@@ -148,7 +156,7 @@ function legacyRuleResource(file: DetectorFile): CapabilityResource {
     description: 'Legacy Cursor rules file.',
     client,
     resourceType: 'rule',
-    scope: 'project-shared',
+    scope,
     status: 'needs-review',
     statuses: ['found', 'needs-review'],
     path: file.path,
@@ -161,12 +169,13 @@ function legacyRuleResource(file: DetectorFile): CapabilityResource {
   });
 }
 
-export function detectCursor(files: DetectorFile[]): DetectorResult {
+export function detectCursor(files: DetectorFile[], options: DetectorOptions = {}): DetectorResult {
   const result = emptyDetectorResult();
+  const { projectContext } = options;
 
   for (const file of files.filter(isCursorFile)) {
     if (isMcpConfig(file) && file.content !== undefined) {
-      const scope = scopeForPath(file.path);
+      const scope = scopeForPath(file.path, projectContext);
       const parsed = parseJsonConfig({
         client,
         path: file.path,
@@ -175,7 +184,7 @@ export function detectCursor(files: DetectorFile[]): DetectorResult {
         matchedPathPattern: scope === 'global' ? 'Cursor global mcp.json' : '.cursor/mcp.json'
       });
 
-      result.resources.push(configResource(file, parsed));
+      result.resources.push(configResource(file, parsed, projectContext));
       result.resources.push(...extractMcpServersFromConfig({
         client,
         scope,
@@ -187,12 +196,12 @@ export function detectCursor(files: DetectorFile[]): DetectorResult {
     }
 
     if (isMdcRule(file)) {
-      result.resources.push(mdcRuleResource(file));
+      result.resources.push(mdcRuleResource(file, projectContext));
       continue;
     }
 
     if (isLegacyRule(file)) {
-      result.resources.push(legacyRuleResource(file));
+      result.resources.push(legacyRuleResource(file, projectContext));
     }
   }
 

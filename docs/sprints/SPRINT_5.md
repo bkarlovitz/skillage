@@ -14,7 +14,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Keep selected folder, repo root, and scan root as separate fields in project context.
   - Validation: Tests cover selected repo root, selected subdirectory, non-git folder, and git-unavailable fallback.
 
-- [ ] **Task 5.3**: Correct project scope classification
+- [x] **Task 5.3**: Correct project scope classification
   - Classify resources inside the selected project as project-shared or local-private based on project context and ecosystem conventions, not merely because they live under a user home path.
   - Preserve global classification for resources outside the selected project.
   - Validation: Tests cover `/home/user/repo`, `C:\\Users\\user\\repo`, and WSL UNC project paths.

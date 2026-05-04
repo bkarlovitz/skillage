@@ -4,8 +4,10 @@ import {
   type ParsedTomlConfig
 } from '../config/toml';
 import { extractMcpServersFromConfig } from '../mcp';
+import { classifyProjectPathScope } from '../project/scope';
+import type { SelectedProjectContext } from '../scan';
 import type { CapabilityResource, CapabilityResourceType, CapabilityScope, CapabilityStatus } from '../types';
-import type { DetectorFile, DetectorResult } from './common';
+import type { DetectorFile, DetectorOptions, DetectorResult } from './common';
 import {
   basename,
   comparablePath,
@@ -50,11 +52,15 @@ function isSensitiveStore(path: string): boolean {
     && (base.includes('auth') || base.includes('token') || base.includes('credential') || base === '.env');
 }
 
-function scopeForPath(path: string): CapabilityScope {
+function scopeForPath(path: string, projectContext?: SelectedProjectContext): CapabilityScope {
   const normalized = comparablePath(path);
   if (normalized.startsWith('/etc/codex/')) return 'managed-admin';
   if (normalized.includes('/.codex/plugins/cache/') || normalized.includes('/.codex/.tmp/') || normalized.includes('/.agents/plugins/')) return 'plugin-bundled';
   if (normalized.includes('/local/') || basename(path).includes('.local.')) return 'local-private';
+  if (projectContext) {
+    const classification = classifyProjectPathScope(path, projectContext);
+    if (classification.scope !== 'unknown') return classification.scope;
+  }
   if (isHomeMarkerPath(path, '.codex') || isHomeMarkerPath(path, '.agents')) return 'global';
   return 'project-shared';
 }
@@ -72,13 +78,13 @@ function resourceTypeForPath(path: string): CapabilityResourceType {
   return 'config-file';
 }
 
-function nameFromPath(path: string, resourceType: CapabilityResourceType): string {
+function nameFromPath(path: string, resourceType: CapabilityResourceType, projectContext?: SelectedProjectContext): string {
   const parts = segments(path);
   if (resourceType === 'skill') return parts[parts.length - 2] ?? 'Codex skill';
   if (resourceType === 'plugin') return parts[parts.length - 2] ?? 'Codex plugin';
   if (resourceType === 'custom-agent') return basename(path).replace(/\.toml$/i, '');
   if (resourceType === 'sensitive-store') return 'Codex auth store';
-  if (scopeForPath(path) === 'managed-admin' && resourceType === 'config-file') return 'Codex managed/admin config';
+  if (scopeForPath(path, projectContext) === 'managed-admin' && resourceType === 'config-file') return 'Codex managed/admin config';
   return basename(path);
 }
 
@@ -103,9 +109,9 @@ function caveatsFor(resourceType: CapabilityResourceType, scope: CapabilityScope
     : [];
 }
 
-function genericResource(file: DetectorFile): CapabilityResource {
+function genericResource(file: DetectorFile, projectContext?: SelectedProjectContext): CapabilityResource {
   const resourceType = resourceTypeForPath(file.path);
-  const scope = scopeForPath(file.path);
+  const scope = scopeForPath(file.path, projectContext);
   const status = statusFor(resourceType, scope);
   const sourceEvidence = evidence({
     path: file.path,
@@ -116,7 +122,7 @@ function genericResource(file: DetectorFile): CapabilityResource {
 
   return resource({
     id: `${client}:${resourceType}:${stableId(file.path)}`,
-    name: nameFromPath(file.path, resourceType),
+    name: nameFromPath(file.path, resourceType, projectContext),
     description: `Codex ${resourceType} discovered from ${file.path}.`,
     client,
     resourceType,
@@ -141,8 +147,8 @@ function genericResource(file: DetectorFile): CapabilityResource {
   });
 }
 
-function configResource(file: DetectorFile, parsed: ParsedTomlConfig): CapabilityResource {
-  const scope = scopeForPath(file.path);
+function configResource(file: DetectorFile, parsed: ParsedTomlConfig, projectContext?: SelectedProjectContext): CapabilityResource {
+  const scope = scopeForPath(file.path, projectContext);
   const configEvidence = {
     ...parsed.evidence,
     scannerRule: 'codex-config',
@@ -151,7 +157,7 @@ function configResource(file: DetectorFile, parsed: ParsedTomlConfig): Capabilit
 
   return resource({
     id: `${client}:config:${stableId(file.path)}`,
-    name: nameFromPath(file.path, 'config-file'),
+    name: nameFromPath(file.path, 'config-file', projectContext),
     description: `Codex ${scope} TOML configuration file.`,
     client,
     resourceType: 'config-file',
@@ -170,8 +176,8 @@ function configResource(file: DetectorFile, parsed: ParsedTomlConfig): Capabilit
   });
 }
 
-function derivedTomlResources(file: DetectorFile, parsed: ParsedTomlConfig): CapabilityResource[] {
-  const scope = scopeForPath(file.path);
+function derivedTomlResources(file: DetectorFile, parsed: ParsedTomlConfig, projectContext?: SelectedProjectContext): CapabilityResource[] {
+  const scope = scopeForPath(file.path, projectContext);
   const resources: CapabilityResource[] = [];
   const hooks = getTomlObjectAtPath(parsed, ['hooks']);
   const agents = getTomlObjectAtPath(parsed, ['agents']);
@@ -225,12 +231,13 @@ function isTomlConfig(file: DetectorFile): boolean {
   return basename(file.path) === 'config.toml';
 }
 
-export function detectCodex(files: DetectorFile[]): DetectorResult {
+export function detectCodex(files: DetectorFile[], options: DetectorOptions = {}): DetectorResult {
   const result = emptyDetectorResult();
+  const { projectContext } = options;
 
   for (const file of files.filter(isCodexFile)) {
     if (isSensitiveStore(file.path)) {
-      result.resources.push(genericResource(file));
+      result.resources.push(genericResource(file, projectContext));
       continue;
     }
 
@@ -242,10 +249,10 @@ export function detectCodex(files: DetectorFile[]): DetectorResult {
         scannerRule: 'codex-config',
         matchedPathPattern: basename(file.path)
       });
-      const scope = scopeForPath(file.path);
+      const scope = scopeForPath(file.path, projectContext);
 
-      result.resources.push(configResource(file, parsed));
-      result.resources.push(...derivedTomlResources(file, parsed));
+      result.resources.push(configResource(file, parsed, projectContext));
+      result.resources.push(...derivedTomlResources(file, parsed, projectContext));
       result.resources.push(...extractMcpServersFromConfig({
         client,
         scope,
@@ -257,7 +264,7 @@ export function detectCodex(files: DetectorFile[]): DetectorResult {
       continue;
     }
 
-    result.resources.push(genericResource(file));
+    result.resources.push(genericResource(file, projectContext));
   }
 
   return result;

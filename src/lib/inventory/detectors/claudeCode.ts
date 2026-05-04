@@ -4,8 +4,10 @@ import {
   type ParsedJsonConfig
 } from '../config/json';
 import { extractMcpServersFromConfig } from '../mcp';
+import { classifyProjectPathScope } from '../project/scope';
+import type { SelectedProjectContext } from '../scan';
 import type { CapabilityResource, CapabilityResourceType, CapabilityScope, CapabilityStatus } from '../types';
-import type { DetectorFile, DetectorResult } from './common';
+import type { DetectorFile, DetectorOptions, DetectorResult } from './common';
 import {
   basename,
   comparablePath,
@@ -42,11 +44,15 @@ function isHomeClaudePath(path: string): boolean {
   return (parts[0] === 'home' && index === 2) || (parts[0] === 'users' && index === 2);
 }
 
-function scopeForPath(path: string): CapabilityScope {
+function scopeForPath(path: string, projectContext?: SelectedProjectContext): CapabilityScope {
   const normalized = comparablePath(path);
   const base = basename(path);
   if (base === 'settings.local.json' || base === 'CLAUDE.local.md' || normalized.includes('/local/')) return 'local-private';
   if (normalized.includes('/.claude/plugins/')) return 'plugin-bundled';
+  if (projectContext) {
+    const classification = classifyProjectPathScope(path, projectContext);
+    if (classification.scope !== 'unknown') return classification.scope;
+  }
   if (isHomeClaudePath(path)) return 'global';
   return 'project-shared';
 }
@@ -89,9 +95,9 @@ function caveatsFor(scope: CapabilityScope, resourceType: CapabilityResourceType
     : [];
 }
 
-function genericResource(file: DetectorFile): CapabilityResource {
+function genericResource(file: DetectorFile, projectContext?: SelectedProjectContext): CapabilityResource {
   const resourceType = resourceTypeForPath(file.path);
-  const scope = scopeForPath(file.path);
+  const scope = scopeForPath(file.path, projectContext);
   const sourceEvidence = evidence({
     path: file.path,
     scannerRule: 'claude-code-file',
@@ -122,8 +128,8 @@ function genericResource(file: DetectorFile): CapabilityResource {
   });
 }
 
-function configResource(file: DetectorFile, parsed: ParsedJsonConfig): CapabilityResource {
-  const scope = scopeForPath(file.path);
+function configResource(file: DetectorFile, parsed: ParsedJsonConfig, projectContext?: SelectedProjectContext): CapabilityResource {
+  const scope = scopeForPath(file.path, projectContext);
   const configEvidence = {
     ...parsed.evidence,
     scannerRule: 'claude-code-config',
@@ -150,8 +156,8 @@ function configResource(file: DetectorFile, parsed: ParsedJsonConfig): Capabilit
   });
 }
 
-function derivedConfigResources(file: DetectorFile, parsed: ParsedJsonConfig): CapabilityResource[] {
-  const scope = scopeForPath(file.path);
+function derivedConfigResources(file: DetectorFile, parsed: ParsedJsonConfig, projectContext?: SelectedProjectContext): CapabilityResource[] {
+  const scope = scopeForPath(file.path, projectContext);
   const resources: CapabilityResource[] = [];
   const hooks = getJsonObjectAtPath(parsed, ['hooks']);
   const permissions = getJsonObjectAtPath(parsed, ['permissions']);
@@ -202,8 +208,9 @@ function isJsonConfig(file: DetectorFile): boolean {
   return base === 'settings.json' || base === 'settings.local.json' || base === 'mcp.json';
 }
 
-export function detectClaudeCode(files: DetectorFile[]): DetectorResult {
+export function detectClaudeCode(files: DetectorFile[], options: DetectorOptions = {}): DetectorResult {
   const result = emptyDetectorResult();
+  const { projectContext } = options;
 
   for (const file of files.filter(isClaudeCodeFile)) {
     if (isJsonConfig(file) && file.content !== undefined) {
@@ -214,11 +221,11 @@ export function detectClaudeCode(files: DetectorFile[]): DetectorResult {
         scannerRule: 'claude-code-config',
         matchedPathPattern: basename(file.path)
       });
-      const scope = scopeForPath(file.path);
+      const scope = scopeForPath(file.path, projectContext);
       const trustGated = scope === 'project-shared';
 
-      result.resources.push(configResource(file, parsed));
-      result.resources.push(...derivedConfigResources(file, parsed));
+      result.resources.push(configResource(file, parsed, projectContext));
+      result.resources.push(...derivedConfigResources(file, parsed, projectContext));
       result.resources.push(...extractMcpServersFromConfig({
         client,
         scope,
@@ -230,7 +237,7 @@ export function detectClaudeCode(files: DetectorFile[]): DetectorResult {
       continue;
     }
 
-    result.resources.push(genericResource(file));
+    result.resources.push(genericResource(file, projectContext));
   }
 
   return result;
