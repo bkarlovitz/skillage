@@ -86,4 +86,13 @@ describe('project activation data', () => {
       'Activation is trust-gated and must not be treated as active without explicit trust evidence.'
     ]));
   });
+
+  it('uses shadowing states as activation confidence blockers', () => {
+    const output = withProjectActivationData(testResource({
+      status: 'shadowed',
+      statuses: ['found', 'shadowed']
+    }));
+
+    expect(output.metadata.activationConfidence).toBe('shadowed');
+  });
 });

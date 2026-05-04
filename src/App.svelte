@@ -7,6 +7,7 @@
   import { buildCrossClientViewModel, filterCrossClientGroups } from './lib/inventory/crossClientViewModel';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import { insightCategories } from './lib/inventory/insights';
+  import { buildProjectEffectiveResources, buildProjectInventoryResources } from './lib/inventory/project/effective';
   import { projectInventoryStates } from './lib/inventory/project/states';
   import { relationshipLabels } from './lib/inventory/relationships';
   import { buildSafeResourceDetailPanels } from './lib/inventory/safeDetailPanels';
@@ -67,30 +68,14 @@
     counts[item.client] = (counts[item.client] ?? 0) + 1;
     return counts;
   }, {}));
-  const projectRows = $derived(items.filter((item) => {
-    const statuses = item.statuses ?? [item.status];
-    return item.scope === 'project-shared'
-      || item.scope === 'local-private'
-      || statuses.includes('inherited')
-      || statuses.includes('likely-active')
-      || statuses.includes('needs-review');
-  }));
+  const projectRows = $derived(buildProjectInventoryResources(items));
   const projectSharedRows = $derived(projectRows.filter((item) => item.scope === 'project-shared'));
   const projectInheritedRows = $derived(projectRows.filter((item) => (item.statuses ?? [item.status]).includes('inherited') || item.metadata.inherited === true));
   const projectLocalRows = $derived(projectRows.filter((item) => item.scope === 'local-private'));
   const projectSharedMetadataRows = $derived(projectRows.filter((item) => item.metadata.gitFileState || item.metadata.collaboratorVisibility));
   const projectWarningRows = $derived(projectRows.filter((item) => item.warnings.length || item.metadata.projectRiskCategories));
   const projectStateRows = $derived(projectInventoryStates(activeScanSummary, projectRows.length));
-  const projectEffectiveRows = $derived(projectRows.filter((item) => {
-    const states = activationStates(item);
-    return states.includes('active')
-      || states.includes('likely-active')
-      || states.includes('inherited')
-      || states.includes('trust-gated')
-      || states.includes('needs-review')
-      || states.includes('not-tested')
-      || states.includes('found');
-  }));
+  const projectEffectiveRows = $derived(buildProjectEffectiveResources(items));
   const clientSummaries = $derived(summarizeCoreClients(activeScanSummary));
   const clientDetailModels = $derived(buildClientDetailModels(activeScanSummary));
   const selectedClientDetail = $derived(clientDetailModels.find((detail) => detail.client === selectedClient) ?? clientDetailModels[0]);
@@ -182,12 +167,6 @@
     if (Array.isArray(value)) return value.join(', ');
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
     return 'unknown';
-  }
-
-  function activationStates(item: CapabilityResource): string[] {
-    const states = item.metadata.activationStates;
-    if (Array.isArray(states)) return states.map(String);
-    return item.statuses ?? [item.status];
   }
 
   function activationLabel(item: CapabilityResource): string {

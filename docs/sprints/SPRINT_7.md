@@ -42,7 +42,7 @@ Demo a cross-client view that groups related capabilities, identifies duplicates
   - Link grouped entries back to client detail and source resource detail panels.
   - Validation: UI tests or fixture assertions cover filtering and drilldown paths.
 
-- [ ] **Task 7.9**: Keep relationship logic shared with project inventory
+- [x] **Task 7.9**: Keep relationship logic shared with project inventory
   - Reuse the same relationship model for project effective view and cross-client grouping instead of duplicating inference logic.
   - Validation: Tests prove a shadowing relationship appears consistently in Project Inventory and Cross-Client views.
 

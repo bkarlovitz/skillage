@@ -66,6 +66,10 @@ function activationCaveats(resource: CapabilityResource, states: CapabilityStatu
 }
 
 function confidenceFor(states: CapabilityStatus[]): CapabilityStatus {
+  if (states.includes('blocked')) return 'blocked';
+  if (states.includes('disabled')) return 'disabled';
+  if (states.includes('shadowed')) return 'shadowed';
+  if (states.includes('overridden')) return 'overridden';
   if (states.includes('active')) return 'active';
   if (states.includes('likely-active')) return 'likely-active';
   if (states.includes('inherited')) return 'inherited';
