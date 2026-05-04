@@ -49,6 +49,17 @@ struct CapabilityRelationship {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct ContentPreview {
+    policy: String,
+    raw_preview_allowed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct CapabilityResource {
     id: String,
     name: String,
@@ -62,12 +73,47 @@ struct CapabilityResource {
     #[serde(skip_serializing_if = "Option::is_none")]
     preview_policy: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    content_preview: Option<ContentPreview>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     path: Option<String>,
     evidence: Vec<CapabilityEvidence>,
     warnings: Vec<CapabilityWarning>,
     relationships: Vec<CapabilityRelationship>,
     tags: Vec<String>,
     metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScannerReadPolicy {
+    SafeMarkdownPreview,
+    RedactedPreview,
+    MetadataOnly,
+    UnreadSensitive,
+}
+
+impl ScannerReadPolicy {
+    fn as_preview_policy(self) -> &'static str {
+        match self {
+            ScannerReadPolicy::SafeMarkdownPreview => "safe-markdown-preview",
+            ScannerReadPolicy::RedactedPreview => "redacted-preview",
+            ScannerReadPolicy::MetadataOnly => "metadata-only",
+            ScannerReadPolicy::UnreadSensitive => "unread-sensitive",
+        }
+    }
+
+    fn read_status(self) -> &'static str {
+        match self {
+            ScannerReadPolicy::SafeMarkdownPreview | ScannerReadPolicy::RedactedPreview => "read",
+            ScannerReadPolicy::MetadataOnly | ScannerReadPolicy::UnreadSensitive => "skipped",
+        }
+    }
+
+    fn parse_status(self) -> &'static str {
+        match self {
+            ScannerReadPolicy::SafeMarkdownPreview | ScannerReadPolicy::RedactedPreview => "not-applicable",
+            ScannerReadPolicy::MetadataOnly | ScannerReadPolicy::UnreadSensitive => "skipped",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -178,6 +224,8 @@ fn is_interesting(path: &Path) -> bool {
         || (normalized.contains("/.openclaw/") && file_name.ends_with(".md"))
         || (normalized.contains("/.claude/rules/") && file_name.ends_with(".md"))
         || (normalized.contains("/.codex/rules/") && file_name.ends_with(".rules"))
+        || is_sensitive_store_path(path)
+        || is_log_session_store_path(path)
 }
 
 fn generated_at() -> String {
@@ -235,7 +283,11 @@ fn resource_type_for_path(path: &Path) -> &'static str {
     let normalized = normalize_for_match(path).to_lowercase();
     let file_name = basename(path);
 
-    if file_name == "SKILL.md" {
+    if is_sensitive_store_path(path) {
+        "sensitive-store"
+    } else if is_log_session_store_path(path) {
+        "log-session-store"
+    } else if file_name == "SKILL.md" {
         "skill"
     } else if file_name == "hooks.json" {
         "hook"
@@ -249,6 +301,58 @@ fn resource_type_for_path(path: &Path) -> &'static str {
         "instruction-file"
     } else {
         "config-file"
+    }
+}
+
+fn is_sensitive_store_path(path: &Path) -> bool {
+    let normalized = normalize_for_match(path).to_lowercase();
+    let file_name = basename(path).to_lowercase();
+
+    file_name == ".env"
+        || file_name.starts_with(".env.")
+        || file_name.contains("auth")
+        || file_name.contains("credential")
+        || file_name.contains("secret")
+        || file_name.contains("token")
+        || file_name.contains("password")
+        || file_name.ends_with(".pem")
+        || file_name.ends_with(".key")
+        || normalized.contains("/credentials/")
+        || normalized.contains("/secrets/")
+        || normalized.contains("/tokens/")
+}
+
+fn is_log_session_store_path(path: &Path) -> bool {
+    let normalized = normalize_for_match(path).to_lowercase();
+    let file_name = basename(path).to_lowercase();
+
+    normalized.contains("/logs/")
+        || normalized.contains("/sessions/")
+        || normalized.contains("/transcripts/")
+        || normalized.contains("/cache/traces/")
+        || normalized.contains("/traces/")
+        || normalized.contains("/memory/")
+        || file_name.contains("session")
+        || file_name.contains("transcript")
+        || file_name.contains("trace")
+        || file_name == "memory.json"
+        || file_name == "memory.md"
+}
+
+fn read_policy_for_path(path: &Path) -> ScannerReadPolicy {
+    let normalized = normalize_for_match(path).to_lowercase();
+    let file_name = basename(path).to_lowercase();
+
+    if file_name.ends_with(".pem") || file_name.ends_with(".key") {
+        ScannerReadPolicy::UnreadSensitive
+    } else if is_sensitive_store_path(path) || is_log_session_store_path(path) {
+        ScannerReadPolicy::MetadataOnly
+    } else if file_name.ends_with(".md") || file_name.ends_with(".mdc") || file_name == "skill.md" {
+        ScannerReadPolicy::SafeMarkdownPreview
+    } else if file_name.ends_with(".json") || file_name.ends_with(".toml") || file_name.ends_with(".yaml") || file_name.ends_with(".yml") || normalized.contains("/.codex/rules/") {
+        ScannerReadPolicy::RedactedPreview
+    } else {
+        ScannerReadPolicy::MetadataOnly
     }
 }
 
@@ -270,14 +374,38 @@ fn scope_for_path(path: &Path) -> &'static str {
     }
 }
 
-fn preview_policy_for_resource(resource_type: &str) -> &'static str {
-    match resource_type {
-        "instruction-file" | "skill" | "rule" => "metadata-only",
-        _ => "metadata-only",
+fn content_preview_for_policy(policy: ScannerReadPolicy) -> ContentPreview {
+    let policy_key = policy.as_preview_policy().to_string();
+
+    match policy {
+        ScannerReadPolicy::SafeMarkdownPreview => ContentPreview {
+            policy: policy_key,
+            raw_preview_allowed: false,
+            text: None,
+            reason: Some("Safe markdown source detected; preview text is withheld until UI redaction is enabled.".to_string()),
+        },
+        ScannerReadPolicy::RedactedPreview => ContentPreview {
+            policy: policy_key,
+            raw_preview_allowed: false,
+            text: None,
+            reason: Some("Config-like source detected; preview text requires redaction before display.".to_string()),
+        },
+        ScannerReadPolicy::MetadataOnly => ContentPreview {
+            policy: policy_key,
+            raw_preview_allowed: false,
+            text: None,
+            reason: Some("Source is represented by metadata only.".to_string()),
+        },
+        ScannerReadPolicy::UnreadSensitive => ContentPreview {
+            policy: policy_key,
+            raw_preview_allowed: false,
+            text: None,
+            reason: Some("Sensitive source content is not read by default.".to_string()),
+        },
     }
 }
 
-fn source_evidence(path: &Path, read_status: &str, parse_status: &str) -> CapabilityEvidence {
+fn source_evidence(path: &Path, policy: ScannerReadPolicy) -> CapabilityEvidence {
     CapabilityEvidence {
         source_path: Some(path.to_string_lossy().to_string()),
         source_label: None,
@@ -285,14 +413,15 @@ fn source_evidence(path: &Path, read_status: &str, parse_status: &str) -> Capabi
         matched_path_pattern: Some(basename(path)),
         parsed_key_path: None,
         included_from_path: None,
-        read_status: read_status.to_string(),
-        parse_status: parse_status.to_string(),
+        read_status: policy.read_status().to_string(),
+        parse_status: policy.parse_status().to_string(),
     }
 }
 
 fn resource_from_file(path: &Path, size_bytes: u64) -> CapabilityResource {
     let client = client_for_path(path).to_string();
     let resource_type = resource_type_for_path(path).to_string();
+    let read_policy = read_policy_for_path(path);
     let scope = scope_for_path(path).to_string();
     let display_path = path.to_string_lossy().to_string();
     let name = if basename(path) == "SKILL.md" {
@@ -305,6 +434,17 @@ fn resource_from_file(path: &Path, size_bytes: u64) -> CapabilityResource {
         basename(path)
     };
 
+    let status = if matches!(resource_type.as_str(), "sensitive-store" | "log-session-store") {
+        "sensitive"
+    } else {
+        "found"
+    };
+    let statuses = if status == "sensitive" {
+        vec!["found".to_string(), "sensitive".to_string()]
+    } else {
+        vec!["found".to_string(), "not-tested".to_string()]
+    };
+
     CapabilityResource {
         id: format!("{client}:{}", stable_id(path)),
         name,
@@ -312,17 +452,19 @@ fn resource_from_file(path: &Path, size_bytes: u64) -> CapabilityResource {
         client,
         resource_type: resource_type.clone(),
         scope,
-        status: "found".to_string(),
-        statuses: vec!["found".to_string(), "not-tested".to_string()],
-        preview_policy: Some(preview_policy_for_resource(&resource_type).to_string()),
+        status: status.to_string(),
+        statuses,
+        preview_policy: Some(read_policy.as_preview_policy().to_string()),
+        content_preview: Some(content_preview_for_policy(read_policy)),
         path: Some(display_path),
-        evidence: vec![source_evidence(path, "read", "not-applicable")],
+        evidence: vec![source_evidence(path, read_policy)],
         warnings: Vec::new(),
         relationships: Vec::new(),
         tags: vec![resource_type],
         metadata: serde_json::json!({
             "sizeBytes": size_bytes,
-            "scannerContract": "structured-v1"
+            "scannerContract": "structured-v1",
+            "readPolicy": read_policy.as_preview_policy()
         }),
     }
 }
@@ -591,6 +733,58 @@ mod tests {
         assert!(serialized.contains("\"scanRoots\""));
         assert!(!serialized.contains("should-not-serialize"));
         assert!(!serialized.contains("\"content\""));
+
+        fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn read_policy_classifies_sensitive_log_and_markdown_paths() {
+        assert_eq!(
+            read_policy_for_path(&PathBuf::from("/repo/AGENTS.md")),
+            ScannerReadPolicy::SafeMarkdownPreview
+        );
+        assert_eq!(
+            read_policy_for_path(&PathBuf::from("/repo/.cursor/mcp.json")),
+            ScannerReadPolicy::RedactedPreview
+        );
+        assert_eq!(
+            read_policy_for_path(&PathBuf::from("/repo/.env")),
+            ScannerReadPolicy::MetadataOnly
+        );
+        assert_eq!(
+            read_policy_for_path(&PathBuf::from("/home/user/.openclaw/sessions/latest.json")),
+            ScannerReadPolicy::MetadataOnly
+        );
+        assert_eq!(
+            read_policy_for_path(&PathBuf::from("/home/user/.ssh/id_rsa.key")),
+            ScannerReadPolicy::UnreadSensitive
+        );
+    }
+
+    #[test]
+    fn sensitive_log_and_session_paths_do_not_produce_raw_preview_content() {
+        let root = unique_test_dir("read-policy");
+        fs::create_dir_all(root.join(".openclaw/sessions")).expect("create session dir");
+        fs::create_dir_all(root.join(".codex/cache/traces")).expect("create trace dir");
+
+        fs::write(root.join(".env"), "API_TOKEN=raw-secret-value").expect("write env");
+        fs::write(root.join(".openclaw/sessions/latest.json"), "raw conversation log").expect("write session");
+        fs::write(root.join(".codex/cache/traces/run.json"), "raw trace").expect("write trace");
+
+        let resources = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+        let serialized = serde_json::to_string(&resources).expect("resources serialize");
+
+        assert_eq!(resources.len(), 3);
+        assert!(resources.iter().all(|resource| resource.preview_policy.as_deref() == Some("metadata-only")));
+        assert!(resources.iter().all(|resource| resource
+            .content_preview
+            .as_ref()
+            .is_some_and(|preview| preview.text.is_none() && !preview.raw_preview_allowed)));
+        assert!(resources.iter().any(|resource| resource.resource_type == "sensitive-store"));
+        assert!(resources.iter().any(|resource| resource.resource_type == "log-session-store"));
+        assert!(!serialized.contains("raw-secret-value"));
+        assert!(!serialized.contains("raw conversation log"));
+        assert!(!serialized.contains("raw trace"));
 
         fs::remove_dir_all(root).expect("remove root");
     }

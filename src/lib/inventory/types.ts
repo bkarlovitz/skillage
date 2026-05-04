@@ -128,6 +128,13 @@ export interface CapabilityRelationship {
   evidence?: CapabilityEvidence;
 }
 
+export interface CapabilityContentPreview {
+  policy: ContentPreviewPolicy;
+  rawPreviewAllowed: boolean;
+  text?: string;
+  reason?: string;
+}
+
 export interface CapabilityResource {
   id: string;
   name: string;
@@ -138,6 +145,7 @@ export interface CapabilityResource {
   status: CapabilityStatus;
   statuses?: CapabilityStatus[];
   previewPolicy?: ContentPreviewPolicy;
+  contentPreview?: CapabilityContentPreview;
   path?: string;
   evidence: CapabilityEvidence[];
   warnings: CapabilityWarning[];

@@ -9,7 +9,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Keep compatibility shims only where needed during migration.
   - Validation: Rust serialization tests verify resources can be returned without raw content.
 
-- [ ] **Task 2.2**: Implement scanner read policy before broad discovery
+- [x] **Task 2.2**: Implement scanner read policy before broad discovery
   - Add scanner rules that decide whether a file can be read as safe markdown, read and redacted, represented as metadata-only, or skipped as sensitive.
   - Apply metadata-only behavior to logs, sessions, auth stores, token files, environment files, credential files, memory stores, and cache traces.
   - Validation: Unit tests prove sensitive/log/session paths do not produce raw preview content.
