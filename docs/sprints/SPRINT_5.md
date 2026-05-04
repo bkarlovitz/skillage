@@ -24,7 +24,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Use unknown instead of overclaiming when the source convention is unclear.
   - Validation: Tests cover local/private positive examples and unknown fallback examples.
 
-- [ ] **Task 5.5**: Add git shared/private metadata
+- [x] **Task 5.5**: Add git shared/private metadata
   - Classify project files as tracked, ignored, untracked, outside-git, or git-unavailable.
   - Use read-only git commands without writes, hooks, network, or submodule recursion.
   - Validation: Tests or fixture-backed command wrappers cover all five git metadata states and git-missing fallback.
