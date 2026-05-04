@@ -42,7 +42,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Surface caveats that local desktop inventory may not own full runtime state when OpenClaw appears configured for gateway or remote mode.
   - Validation: Fixture tests show gateway caveat when remote/gateway hints are present and no caveat when absent.
 
-- [ ] **Task 4.9**: Add Hermes and OpenClaw client summaries
+- [x] **Task 4.9**: Add Hermes and OpenClaw client summaries
   - Compute installed/configured/partially-configured/not-found status, profile counts, sensitive store counts, and caveats for both clients.
   - Validation: Summary tests cover found, not-found, partial, profile-only, and sensitive-store-only states.
 

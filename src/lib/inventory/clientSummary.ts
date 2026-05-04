@@ -1,7 +1,7 @@
 import type { ScanSummary } from './scan';
 import type { CapabilityClient, CapabilityResource, CapabilityStatus } from './types';
 
-export const coreInventoryClients = ['claude-code', 'claude-desktop', 'codex', 'cursor'] as const satisfies readonly CapabilityClient[];
+export const coreInventoryClients = ['claude-code', 'claude-desktop', 'codex', 'cursor', 'hermes', 'openclaw'] as const satisfies readonly CapabilityClient[];
 
 export type CoreInventoryClient = typeof coreInventoryClients[number];
 export type CoreClientSummaryStatus = 'installed' | 'configured' | 'partially-configured' | 'not-found';
@@ -16,6 +16,9 @@ export interface CoreClientSummary {
   parseableCount: number;
   parseErrorCount: number;
   warningCount: number;
+  profileCount: number;
+  sensitiveStoreCount: number;
+  logSessionStoreCount: number;
   caveats: string[];
   resources: CapabilityResource[];
 }
@@ -94,7 +97,8 @@ export function summarizeCoreClients(summary: ScanSummary): CoreClientSummary[] 
     const warningCount = resources.reduce((total, resource) => total + resource.warnings.length, 0)
       + summary.warnings.filter((warning) => warning.client === client).length
       + summary.readErrors.filter((error) => error.client === client).length
-      + summary.parseErrors.filter((error) => error.client === client).length;
+      + summary.parseErrors.filter((error) => error.client === client).length
+      + summary.skippedSensitiveStores.filter((store) => store.client === client).length;
     const counts = evidenceCounts(resources);
 
     return {
@@ -103,6 +107,11 @@ export function summarizeCoreClients(summary: ScanSummary): CoreClientSummary[] 
       resourceCount: resources.length,
       knownLocationCount: locations.length,
       warningCount,
+      profileCount: resources.filter((resource) => resource.resourceType === 'profile').length,
+      sensitiveStoreCount: resources.filter((resource) => resource.resourceType === 'sensitive-store').length
+        + summary.skippedSensitiveStores.filter((store) => store.client === client && store.resourceType === 'sensitive-store').length,
+      logSessionStoreCount: resources.filter((resource) => resource.resourceType === 'log-session-store').length
+        + summary.skippedSensitiveStores.filter((store) => store.client === client && store.resourceType === 'log-session-store').length,
       caveats: topCaveats(summary, client, resources),
       resources,
       ...counts

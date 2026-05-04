@@ -115,4 +115,74 @@ describe('core client summaries', () => {
     expect(codex?.warningCount).toBe(1);
     expect(codex?.caveats).toEqual(['Permission denied']);
   });
+
+  it('summarizes Hermes profile-only states with profile counts', () => {
+    const summaries = summarizeCoreClients(summary({
+      resources: [resource({ id: 'hermes-default', client: 'hermes', resourceType: 'profile', status: 'found', scope: 'profile' })]
+    }));
+    const hermes = summaries.find((item) => item.client === 'hermes');
+
+    expect(hermes?.status).toBe('configured');
+    expect(hermes?.profileCount).toBe(1);
+    expect(hermes?.sensitiveStoreCount).toBe(0);
+  });
+
+  it('summarizes OpenClaw sensitive-store-only states as installed presence', () => {
+    const storeEvidence = baseEvidence('/home/user/.openclaw/auth.json', 'skipped', 'skipped');
+    const summaries = summarizeCoreClients(summary({
+      resources: [resource({
+        id: 'openclaw-auth',
+        client: 'openclaw',
+        resourceType: 'sensitive-store',
+        status: 'sensitive',
+        statuses: ['found', 'sensitive'],
+        evidence: [storeEvidence]
+      })],
+      skippedSensitiveStores: [{
+        id: 'skipped-openclaw-auth',
+        client: 'openclaw',
+        resourceType: 'sensitive-store',
+        scope: 'global',
+        path: '/home/user/.openclaw/auth.json',
+        reason: 'Auth store skipped',
+        evidence: storeEvidence
+      }]
+    }));
+    const openclaw = summaries.find((item) => item.client === 'openclaw');
+
+    expect(openclaw?.status).toBe('installed');
+    expect(openclaw?.sensitiveStoreCount).toBe(2);
+    expect(openclaw?.caveats).toContain('Auth store skipped');
+  });
+
+  it('marks Hermes parse errors partially configured', () => {
+    const parseEvidence = baseEvidence('/home/user/.hermes/config.json', 'parse-error');
+    const summaries = summarizeCoreClients(summary({
+      resources: [resource({
+        id: 'hermes-config',
+        client: 'hermes',
+        resourceType: 'config-file',
+        status: 'parse-error',
+        evidence: [parseEvidence]
+      })],
+      parseErrors: [{
+        id: 'hermes-parse',
+        client: 'hermes',
+        path: '/home/user/.hermes/config.json',
+        message: 'Malformed Hermes config',
+        evidence: parseEvidence
+      }]
+    }));
+
+    expect(summaries.find((item) => item.client === 'hermes')?.status).toBe('partially-configured');
+  });
+
+  it('reports not-found for absent Hermes and OpenClaw clients', () => {
+    const summaries = summarizeCoreClients(summary({
+      knownClientLocations: [location('hermes', false), location('openclaw', false)]
+    }));
+
+    expect(summaries.find((item) => item.client === 'hermes')?.status).toBe('not-found');
+    expect(summaries.find((item) => item.client === 'openclaw')?.status).toBe('not-found');
+  });
 });
