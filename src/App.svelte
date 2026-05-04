@@ -1,18 +1,25 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { findSkillById } from './lib/detail';
+  import { fixtureScenarios, getFixtureScenario, skillItemsFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
+  import { createEmptyScanSummary, type ScanSummary } from './lib/inventory/scan';
   import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
-  import { sampleItems } from './lib/sampleData';
   import { paginate, sortSkillItems, type SortDirection, type SortKey } from './lib/table';
   import { applyTheme, getStoredTheme, resolveTheme, storeTheme, systemPrefersDark, type ThemePreference } from './lib/theme';
   import type { SkillItem, SkillTarget } from './lib/types';
 
-  const targets: Array<'all' | SkillTarget> = ['all', 'claude-code', 'codex', 'hermes', 'openclaw', 'cursor', 'generic'];
+  const targets: Array<'all' | SkillTarget> = ['all', 'claude-code', 'claude-desktop', 'codex', 'hermes', 'openclaw', 'cursor', 'generic'];
   const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
   const pageSizeOptions = [25, 50, 100];
+  const defaultFixtureScenarioId: InventoryFixtureScenarioId = 'full-machine';
+  const defaultFixtureScenario = getFixtureScenario(defaultFixtureScenarioId);
+  const defaultFixtureItems = skillItemsFromFixtureScenario(defaultFixtureScenarioId);
 
-  let items = $state<SkillItem[]>(sampleItems);
-  let selectedId = $state(sampleItems[0]?.id ?? '');
+  let items = $state<SkillItem[]>(defaultFixtureItems);
+  let selectedId = $state(defaultFixtureItems[0]?.id ?? '');
+  let activeFixtureScenarioId = $state<InventoryFixtureScenarioId>(defaultFixtureScenarioId);
+  let activeScanSummary = $state<ScanSummary>(defaultFixtureScenario.summary);
+  let dataSourceLabel = $state(`Fixture: ${defaultFixtureScenario.label}`);
   let query = $state('');
   let target = $state<'all' | SkillTarget>('all');
   let mode = $state<'inventory' | 'detail' | 'create' | 'research'>('inventory');
@@ -40,6 +47,8 @@
   const visibleRows = $derived(pageResult.rows);
   const selected = $derived(findSkillById(items, selectedId));
   const issueCount = $derived(items.reduce((total, item) => total + item.issues.length, 0));
+  const scanIssueCount = $derived(activeScanSummary.readErrors.length + activeScanSummary.parseErrors.length + activeScanSummary.skippedSensitiveStores.length + activeScanSummary.warnings.length);
+  const sourceModeLabel = $derived(activeScanSummary.dataSource === 'fixture' ? 'Fixture/demo' : 'Local scan');
   const targetCounts = $derived(items.reduce<Record<string, number>>((counts, item) => {
     counts[item.target] = (counts[item.target] ?? 0) + 1;
     return counts;
@@ -110,14 +119,47 @@
     storeTheme(window.localStorage, preference);
   }
 
+  function setRows(nextItems: SkillItem[]) {
+    items = nextItems;
+    selectedId = nextItems[0]?.id ?? '';
+    page = 1;
+  }
+
+  function loadFixtureScenario(id: InventoryFixtureScenarioId) {
+    const scenario = getFixtureScenario(id);
+    activeFixtureScenarioId = scenario.id;
+    activeScanSummary = scenario.summary;
+    dataSourceLabel = `Fixture: ${scenario.label}`;
+    target = 'all';
+    setRows(skillItemsFromFixtureScenario(scenario.id));
+    scanStatus = `${scenario.label} fixture loaded. No local scan ran.`;
+  }
+
   async function scanStandard() {
     scanStatus = 'Scanning standard local skill locations...';
     try {
       const discovered = await scanStandardLocations();
-      items = discovered.length ? discovered : sampleItems;
-      selectedId = items[0]?.id ?? '';
-      page = 1;
-      scanStatus = discovered.length ? `Loaded ${discovered.length} asset(s) from standard locations.` : 'No local standard-location skills found; restored sample data.';
+      activeScanSummary = createEmptyScanSummary({
+        id: 'local-standard-scan',
+        generatedAt: new Date().toISOString(),
+        dataSource: 'local-scan',
+        scanRoots: [{
+          path: 'standard locations',
+          label: 'Standard local locations',
+          status: 'scanned',
+          evidence: {
+            sourceLabel: 'Standard local locations',
+            scannerRule: 'standard-locations',
+            matchedPathPattern: 'known client homes and current working directory',
+            readStatus: 'read',
+            parseStatus: 'not-applicable'
+          }
+        }]
+      });
+      dataSourceLabel = 'Local scan: standard locations';
+      target = 'all';
+      setRows(discovered);
+      scanStatus = discovered.length ? `Loaded ${discovered.length} asset(s) from standard locations.` : 'No local standard-location capabilities found.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Standard-location scan failed.';
     }
@@ -127,10 +169,27 @@
     scanStatus = 'Scanning selected root...';
     try {
       const discovered = await scanRoot(scanRootPath.trim());
-      items = discovered.length ? discovered : sampleItems;
-      selectedId = items[0]?.id ?? '';
-      page = 1;
-      scanStatus = discovered.length ? `Loaded ${discovered.length} asset(s).` : 'No matching files found; restored sample data.';
+      activeScanSummary = createEmptyScanSummary({
+        id: 'local-root-scan',
+        generatedAt: new Date().toISOString(),
+        dataSource: 'local-scan',
+        scanRoots: [{
+          path: scanRootPath.trim(),
+          label: 'Selected scan root',
+          status: 'scanned',
+          evidence: {
+            sourcePath: scanRootPath.trim(),
+            scannerRule: 'selected-root',
+            matchedPathPattern: scanRootPath.trim(),
+            readStatus: 'read',
+            parseStatus: 'not-applicable'
+          }
+        }]
+      });
+      dataSourceLabel = `Local scan: ${scanRootPath.trim()}`;
+      target = 'all';
+      setRows(discovered);
+      scanStatus = discovered.length ? `Loaded ${discovered.length} asset(s).` : 'No matching capabilities found in the selected root.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Native scan failed.';
     }
@@ -171,8 +230,6 @@
     };
     media?.addEventListener('change', handleSystemThemeChange);
 
-    void scanStandard();
-
     return () => media?.removeEventListener('change', handleSystemThemeChange);
   });
 </script>
@@ -211,8 +268,10 @@
     </section>
 
     <section class="sidebar-section compact" aria-label="Summary">
+      <div class="metric-row"><span>Data</span><strong>{sourceModeLabel}</strong></div>
       <div class="metric-row"><span>Visible</span><strong>{filtered.length}</strong></div>
       <div class="metric-row"><span>Validation issues</span><strong>{issueCount}</strong></div>
+      <div class="metric-row"><span>Scan caveats</span><strong>{scanIssueCount}</strong></div>
       <div class="metric-row"><span>License</span><strong>MIT</strong></div>
     </section>
 
@@ -242,11 +301,21 @@
           <p>Normalized across Claude Code, Codex, Hermes, OpenClaw, Cursor rules, and generic agent files.</p>
         </div>
         <div class="topbar-actions">
+          <label class="field demo-scenario-field">
+            <span>Demo scenario</span>
+            <select value={activeFixtureScenarioId} onchange={(event) => loadFixtureScenario(event.currentTarget.value as InventoryFixtureScenarioId)}>
+              {#each fixtureScenarios as scenario}
+                <option value={scenario.id}>{scenario.label}</option>
+              {/each}
+            </select>
+          </label>
           <button class="button secondary" onclick={() => (advancedScanOpen = !advancedScanOpen)}>{advancedScanOpen ? 'Hide scan root' : 'Advanced scan'}</button>
           <button class="button secondary" onclick={scanStandard}>Scan standard locations</button>
           <button class="button primary" onclick={createSampleSkill}>New draft skill</button>
         </div>
       </section>
+
+      <p class="status-line data-source-line"><strong>{sourceModeLabel}</strong><span>{dataSourceLabel}</span></p>
 
       <section class="filters" aria-label="Inventory filters">
         <label class="field search-field">

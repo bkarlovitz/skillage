@@ -176,6 +176,8 @@ input::placeholder { color: var(--text-subtle); }
 .topbar { display: flex; justify-content: space-between; gap: 24px; align-items: start; margin-bottom: 16px; }
 .topbar p { margin-bottom: 0; max-width: 760px; }
 .topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.demo-scenario-field { min-width: 224px; }
+.demo-scenario-field select { padding: 9px 10px; }
 .eyebrow { display: block; margin-bottom: 8px; color: var(--accent); }
 
 .button {
@@ -222,6 +224,14 @@ input::placeholder { color: var(--text-subtle); }
   padding: 9px 11px;
   font-size: 13px;
 }
+.data-source-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -4px;
+}
+.data-source-line strong { color: var(--text); }
+.data-source-line span { color: inherit; }
 
 .inventory-table-page { display: grid; }
 .table-panel {

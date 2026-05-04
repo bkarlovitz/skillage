@@ -25,7 +25,7 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Ensure sensitive stores, auth files, logs, sessions, transcripts, cache traces, and memory stores default to metadata-only or unread-sensitive.
   - Validation: Redaction policy tests prove raw secret/log/session content is not previewable by default.
 
-- [ ] **Task 1.5**: Add fixture-backed demo scenarios
+- [x] **Task 1.5**: Add fixture-backed demo scenarios
   - Replace implicit sample fallback data with explicit fixture scenarios for empty machine, full machine, project with inherited globals, duplicate MCP names, secret warning, parse/read error, and not-found clients.
   - Add a visible UI state that labels fixture/demo data separately from local scan data.
   - Validation: `npm run test -- src/lib/inventory/fixtures.test.ts` passes and a browser dev run can switch fixture scenarios without invoking local scanning.
