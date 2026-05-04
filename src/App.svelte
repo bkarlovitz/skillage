@@ -67,13 +67,30 @@
   const clientSummaries = $derived(capabilityClients.map((client) => {
     const resources = items.filter((item) => item.client === client);
     const locations = activeScanSummary.knownClientLocations.filter((location) => location.client === client);
+    const scannerProblems = [
+      ...activeScanSummary.readErrors.filter((error) => error.client === client),
+      ...activeScanSummary.parseErrors.filter((error) => error.client === client),
+      ...activeScanSummary.warnings.filter((warning) => warning.client === client)
+    ];
+    const state = resources.some((item) => item.status !== 'not-found')
+      ? 'found'
+      : locations.some((location) => location.exists) || scannerProblems.length > 0
+        ? 'partial'
+        : 'not-found';
     return {
       client,
       resources,
       locations,
-      found: resources.some((item) => item.status !== 'not-found') || locations.some((location) => location.exists)
+      state,
+      found: state === 'found'
     };
   }));
+  const scannerProblemRows = $derived([
+    ...activeScanSummary.readErrors.map((error) => ({ id: error.id, severity: 'error', label: 'Read error', message: error.message, path: error.path })),
+    ...activeScanSummary.parseErrors.map((error) => ({ id: error.id, severity: 'error', label: 'Parse error', message: error.message, path: error.path })),
+    ...activeScanSummary.skippedSensitiveStores.map((store) => ({ id: store.id, severity: 'warning', label: 'Skipped sensitive', message: store.reason, path: store.path })),
+    ...activeScanSummary.warnings.map((warning) => ({ id: warning.id, severity: warning.severity, label: 'Scanner warning', message: warning.message, path: warning.evidence?.sourcePath ?? warning.evidence?.sourceLabel ?? '' }))
+  ]);
   const crossClientGroups = $derived(Object.values(items.reduce<Record<string, { key: string; name: string; kind: string; rows: CapabilityResource[]; clients: string[]; scopes: string[]; warnings: number }>>((groups, item) => {
     const key = `${item.name.toLowerCase()}::${item.resourceType}`;
     const group = groups[key] ?? {
@@ -301,6 +318,57 @@
 
       <p class="status-line data-source-line"><strong>{sourceModeLabel}</strong><span>{dataSourceLabel}</span></p>
 
+      <section class="scanner-metadata-grid" aria-label="Scanner metadata">
+        <article class="metadata-panel">
+          <h3>Scan roots</h3>
+          <div class="metadata-list">
+            {#each activeScanSummary.scanRoots as root}
+              <div class="metadata-row">
+                <span><strong>{root.label}</strong><small>{root.path}</small></span>
+                <span class="badge">{root.status}</span>
+              </div>
+            {:else}
+              <div class="empty small-empty">No scan roots recorded for this data set.</div>
+            {/each}
+          </div>
+        </article>
+
+        <article class="metadata-panel">
+          <h3>Known locations</h3>
+          <div class="metadata-list">
+            {#each activeScanSummary.knownClientLocations.slice(0, 8) as location}
+              <div class="metadata-row">
+                <span><strong>{location.client}</strong><small>{location.path ?? location.label}</small></span>
+                <span class:ok-status={location.exists} class="client-status">{location.exists ? 'found' : 'not found'}</span>
+              </div>
+            {:else}
+              <div class="empty small-empty">No known client locations recorded yet.</div>
+            {/each}
+          </div>
+        </article>
+
+        <article class="metadata-panel">
+          <h3>Scanner records</h3>
+          <div class="metadata-list">
+            {#each scannerProblemRows.slice(0, 8) as problem}
+              <div class="metadata-row">
+                <span><strong>{problem.label}</strong><small>{problem.message}</small>{#if problem.path}<code>{problem.path}</code>{/if}</span>
+                <span class="badge">{problem.severity}</span>
+              </div>
+            {:else}
+              <div class="empty small-empty">No scanner errors or warnings in this data set.</div>
+            {/each}
+          </div>
+        </article>
+      </section>
+
+      {#if activeScanSummary.dataSource === 'local-scan' && items.length === 0}
+        <section class="empty local-empty-state">
+          <strong>No local capability resources found.</strong>
+          <span>The scan stayed empty. Use the fixture selector for demo data or scan another root.</span>
+        </section>
+      {/if}
+
       <section class="filters" aria-label="Inventory filters">
         <label class="field search-field">
           <span>Search</span>
@@ -458,7 +526,7 @@
           <article class="client-card">
             <div class="client-card-header">
               <h3>{summary.client}</h3>
-              <span class:ok-status={summary.found} class="client-status">{summary.found ? 'found' : 'not found'}</span>
+              <span class:ok-status={summary.state === 'found'} class:partial-status={summary.state === 'partial'} class="client-status">{summary.state}</span>
             </div>
             <dl class="meta compact-meta">
               <div><dt>Resources</dt><dd>{summary.resources.length}</dd></div>

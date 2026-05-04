@@ -49,7 +49,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Ensure browser production still explains that local scanning requires the desktop app.
   - Validation: `npm run test -- vite.config.test.ts` or equivalent scanner contract tests pass.
 
-- [ ] **Task 2.10**: Build a machine inventory shell from scanner metadata
+- [x] **Task 2.10**: Build a machine inventory shell from scanner metadata
   - Show scan roots, known client locations, found/not-found/partial client states, scanner errors, and safe empty states before deep client parsing exists.
   - Do not show raw file bodies in the shell.
   - Validation: `npm run check`, `npm run build`, and a manual dev scan show scanner metadata grouped by client/location.

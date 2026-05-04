@@ -29,7 +29,7 @@ describe('Vite dev scanner contract', () => {
 
       expect(summary.id).toBe('local-root-scan');
       expect(summary.resources).toHaveLength(1);
-      expect(summary.knownClientLocations).toEqual([]);
+      expect(summary.knownClientLocations.length).toBeGreaterThan(0);
       expect(summary.readErrors).toEqual([]);
       expect(summary.parseErrors).toEqual([]);
       expect(summary.skippedSensitiveStores).toEqual([]);

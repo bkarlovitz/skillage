@@ -6,6 +6,7 @@ import path from 'node:path';
 import { parseVirtualFiles } from './src/lib/adapters';
 import { capabilityResourcesFromSkillItems } from './src/lib/inventory/legacy';
 import { buildLocalScanResult } from './src/lib/inventory/localScan';
+import { knownClientLocationsForPlatform, type OsFamily } from './src/lib/inventory/locations';
 import type { ScanSummary } from './src/lib/inventory/scan';
 
 const MAX_FILES = 2_000;
@@ -93,6 +94,20 @@ export function standardRoots(): string[] {
   ].filter((candidate, index, all) => fs.existsSync(candidate) && all.indexOf(candidate) === index);
 }
 
+function currentOsFamily(): OsFamily {
+  if (process.platform === 'darwin') return 'macos';
+  if (process.platform === 'win32') return 'windows';
+  return 'linux';
+}
+
+function knownLocationsForDev(existingPaths: string[]): ReturnType<typeof knownClientLocationsForPlatform> {
+  return knownClientLocationsForPlatform(currentOsFamily(), {
+    home: os.homedir(),
+    windowsHome: os.homedir(),
+    appData: process.env.APPDATA
+  }, existingPaths);
+}
+
 export function virtualFilesToDevScanSummary(files: VirtualFile[], kind: 'standard' | 'root', root = ''): ScanSummary {
   const resources = capabilityResourcesFromSkillItems(parseVirtualFiles(files));
   return buildLocalScanResult({
@@ -109,12 +124,17 @@ export function virtualFilesToDevScanSummary(files: VirtualFile[], kind: 'standa
 }
 
 export function scanRoot(root: string): ScanSummary {
-  return virtualFilesToDevScanSummary(scanRootFiles(root), 'root', root);
+  const summary = virtualFilesToDevScanSummary(scanRootFiles(root), 'root', root);
+  summary.knownClientLocations = knownLocationsForDev(standardRoots());
+  return summary;
 }
 
 export function scanStandardRoots(): ScanSummary {
-  const files = standardRoots().flatMap(scanRootFiles);
-  return virtualFilesToDevScanSummary(files, 'standard');
+  const roots = standardRoots();
+  const files = roots.flatMap(scanRootFiles);
+  const summary = virtualFilesToDevScanSummary(files, 'standard');
+  summary.knownClientLocations = knownLocationsForDev(roots);
+  return summary;
 }
 
 function skillageDevScanner(): Plugin {
