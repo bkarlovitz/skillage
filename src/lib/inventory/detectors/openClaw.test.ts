@@ -72,4 +72,45 @@ describe('OpenClaw detector', () => {
     expect(result.resources.some((resource) => resource.resourceType === 'plugin')).toBe(true);
     expect(result.resources.some((resource) => resource.resourceType === 'migration-import-source')).toBe(true);
   });
+
+  it('extracts MCP servers consumed by OpenClaw', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/openclaw.json',
+      content: JSON.stringify({ mcpServers: { github: { command: 'npx', args: ['-y', '@mcp/github'] } } })
+    }]);
+
+    const server = result.resources.find((resource) => resource.resourceType === 'mcp-server');
+
+    expect(server?.name).toBe('github');
+    expect(server?.metadata.mcpRole).toBe('consumed');
+    expect(server?.status).toBe('not-tested');
+    expect(server?.relationships[0].kind).toBe('defined-by');
+  });
+
+  it('detects OpenClaw exposed as an MCP server when evidence supports it', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/openclaw.json',
+      content: JSON.stringify({ exposes: { mcpServer: { url: 'http://127.0.0.1:3333/mcp' } } })
+    }]);
+
+    const server = result.resources.find((resource) => resource.resourceType === 'mcp-server');
+
+    expect(server?.name).toBe('OpenClaw exposed MCP server');
+    expect(server?.metadata.mcpRole).toBe('exposed');
+    expect(server?.metadata.url).toBe('http://127.0.0.1:3333/mcp');
+    expect(server?.status).toBe('not-tested');
+  });
+
+  it('marks ambiguous OpenClaw MCP config as needs-review', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/openclaw.json',
+      content: JSON.stringify({ mcp: { url: 'http://127.0.0.1:3333/mcp' } })
+    }]);
+
+    const server = result.resources.find((resource) => resource.resourceType === 'mcp-server');
+
+    expect(server?.metadata.mcpRole).toBe('unknown');
+    expect(server?.status).toBe('needs-review');
+    expect(server?.warnings[0].message).toContain('cannot be proven');
+  });
 });

@@ -24,7 +24,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Represent included-from evidence for split config files.
   - Validation: OpenClaw tests cover base state, profile resources, included config, missing include, and migration source detection.
 
-- [ ] **Task 4.5**: Extract OpenClaw MCP relationships carefully
+- [x] **Task 4.5**: Extract OpenClaw MCP relationships carefully
   - Distinguish MCP servers consumed by OpenClaw from OpenClaw exposed as an MCP server to another client when evidence supports it.
   - Use needs-review or unknown when the role cannot be proven.
   - Validation: Tests cover consumed MCP, exposed MCP, ambiguous MCP config, and relationship caveats.

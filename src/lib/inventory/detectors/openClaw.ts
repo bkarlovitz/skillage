@@ -1,4 +1,5 @@
-import { getJsonValueAtPath, parseJsonConfig, type JsonValue } from '../config/json';
+import { getJsonObjectAtPath, getJsonValueAtPath, parseJsonConfig, type JsonObject, type JsonValue, type ParsedJsonConfig } from '../config/json';
+import { extractMcpServersFromConfig } from '../mcp';
 import type { CapabilityEvidence, CapabilityResource, CapabilityResourceType, CapabilityScope } from '../types';
 import type { DetectorFile, DetectorResult } from './common';
 import {
@@ -108,6 +109,121 @@ function genericResource(file: DetectorFile, sourceEvidence?: CapabilityEvidence
       includedFromPath: itemEvidence.includedFromPath ?? ''
     }
   });
+}
+
+function configResource(file: DetectorFile, parsed: ParsedJsonConfig): CapabilityResource {
+  return {
+    ...genericResource(file),
+    status: parsed.parseErrors.length ? 'parse-error' : 'found',
+    contentPreview: parsed.contentPreview,
+    warnings: parsed.warnings
+  };
+}
+
+function firstObjectAtPath(parsed: ParsedJsonConfig, paths: Array<readonly string[]>): { value: JsonObject; evidence: CapabilityEvidence } | undefined {
+  for (const path of paths) {
+    const result = getJsonObjectAtPath(parsed, path);
+    if (result) return result;
+  }
+  return undefined;
+}
+
+function mcpField(object: JsonObject, key: string): string {
+  const value = object[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function mcpRoleResource(input: {
+  file: DetectorFile;
+  parsed: ParsedJsonConfig;
+  configResourceId: string;
+  role: 'exposed' | 'unknown';
+  object: JsonObject;
+  evidence: CapabilityEvidence;
+}): CapabilityResource {
+  const needsReview = input.role === 'unknown';
+  const sourceEvidence = input.evidence;
+
+  return resource({
+    id: `${client}:mcp-${input.role}:${stableId(input.file.path)}`,
+    name: input.role === 'exposed' ? 'OpenClaw exposed MCP server' : 'OpenClaw MCP role',
+    description: input.role === 'exposed'
+      ? 'OpenClaw appears configured to expose an MCP server to other clients.'
+      : 'OpenClaw MCP configuration exists, but the consumed/exposed role is ambiguous.',
+    client,
+    resourceType: 'mcp-server',
+    scope: scopeForPath(input.file.path),
+    status: needsReview ? 'needs-review' : 'not-tested',
+    statuses: needsReview ? ['found', 'not-tested', 'needs-review'] : ['found', 'not-tested'],
+    path: input.file.path,
+    evidence: [sourceEvidence],
+    warnings: [
+      warning(
+        'runtime-caveat',
+        needsReview ? 'warning' : 'info',
+        needsReview
+          ? 'OpenClaw MCP role cannot be proven from this config and needs review.'
+          : 'OpenClaw exposed MCP server was not started or connectivity-tested.',
+        sourceEvidence
+      )
+    ],
+    tags: ['mcp'],
+    metadata: {
+      mcpRole: input.role,
+      command: mcpField(input.object, 'command'),
+      url: mcpField(input.object, 'url') || mcpField(input.object, 'endpoint'),
+      configured: true,
+      tested: false
+    }
+  });
+}
+
+function mcpResourcesForConfig(file: DetectorFile, parsed: ParsedJsonConfig, configResourceId: string): CapabilityResource[] {
+  const consumed = extractMcpServersFromConfig({
+    client,
+    scope: scopeForPath(file.path),
+    configPath: file.path,
+    document: parsed
+  }).map((server) => ({
+    ...server,
+    description: `MCP server consumed by OpenClaw from ${file.path}.`,
+    metadata: {
+      ...server.metadata,
+      mcpRole: 'consumed'
+    },
+    relationships: [{
+      kind: 'defined-by' as const,
+      targetResourceId: configResourceId,
+      note: 'Consumed MCP server definition comes from this OpenClaw config.',
+      evidence: server.evidence[0]
+    }]
+  }));
+
+  const exposed = firstObjectAtPath(parsed, [
+    ['exposedMcpServer'],
+    ['exposes', 'mcpServer'],
+    ['mcp', 'exposedServer']
+  ]);
+  const exposedResources = exposed
+    ? [mcpRoleResource({ file, parsed, configResourceId, role: 'exposed', object: exposed.value, evidence: exposed.evidence })]
+    : [];
+
+  const ambiguous = !consumed.length && !exposed && firstObjectAtPath(parsed, [['mcp']]);
+  const ambiguousResources = ambiguous
+    ? [mcpRoleResource({ file, parsed, configResourceId, role: 'unknown', object: ambiguous.value, evidence: ambiguous.evidence })]
+    : [];
+
+  return [...consumed, ...exposedResources, ...ambiguousResources].map((server) => ({
+    ...server,
+    relationships: server.relationships.length
+      ? server.relationships
+      : [{
+        kind: 'defined-by' as const,
+        targetResourceId: configResourceId,
+        note: 'MCP role evidence comes from this OpenClaw config.',
+        evidence: server.evidence[0]
+      }]
+  }));
 }
 
 function stateResource(path: string): CapabilityResource {
@@ -245,12 +361,9 @@ export function detectOpenClaw(files: DetectorFile[]): DetectorResult {
         matchedPathPattern: basename(file.path)
       });
       result.parseErrors.push(...parseErrorsFromConfig(parsed.parseErrors));
-      result.resources.push({
-        ...genericResource(file),
-        status: parsed.parseErrors.length ? 'parse-error' : 'found',
-        contentPreview: parsed.contentPreview,
-        warnings: parsed.warnings
-      });
+      const config = configResource(file, parsed);
+      result.resources.push(config);
+      result.resources.push(...mcpResourcesForConfig(file, parsed, config.id));
 
       for (const includePath of includePathsForConfig(file)) {
         const included = fileByPath.get(includePath);
