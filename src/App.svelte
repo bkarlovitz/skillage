@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { findCapabilityResourceById } from './lib/detail';
+  import { buildClientSpecificExplanations } from './lib/inventory/clientExplanations';
   import { buildClientSpecificSections } from './lib/inventory/clientSpecificDetails';
   import { buildClientDetailModels, summarizeCoreClients } from './lib/inventory/clientSummary';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
@@ -83,6 +84,7 @@
   const clientDetailModels = $derived(buildClientDetailModels(activeScanSummary));
   const selectedClientDetail = $derived(clientDetailModels.find((detail) => detail.client === selectedClient) ?? clientDetailModels[0]);
   const clientSpecificSections = $derived(selectedClientDetail ? buildClientSpecificSections(selectedClientDetail) : []);
+  const clientSpecificExplanations = $derived(selectedClientDetail ? buildClientSpecificExplanations(selectedClientDetail) : []);
   const coreClientPanels = $derived(clientSummaries.map((summary) => {
     const groups = Object.values(summary.resources.reduce<Record<string, { resourceType: string; rows: CapabilityResource[] }>>((accumulator, resource) => {
       const group = accumulator[resource.resourceType] ?? { resourceType: resource.resourceType, rows: [] };
@@ -873,6 +875,20 @@
                         {/each}
                       </div>
                     </article>
+                  {/each}
+                </div>
+              </section>
+            {/if}
+
+            {#if clientSpecificExplanations.length}
+              <section class="detail-section">
+                <h3>Explanations</h3>
+                <div class="metadata-list">
+                  {#each clientSpecificExplanations as explanation}
+                    <button class="metadata-row button-row" onclick={() => explanation.resourceId ? selectItem(explanation.resourceId) : undefined}>
+                      <span><strong>{explanation.title}</strong><small>{explanation.body}</small><small>{explanation.caveat}</small></span>
+                      <code>{explanation.sourcePath ?? explanation.evidence?.sourcePath ?? explanation.evidence?.sourceLabel ?? 'No source path'}</code>
+                    </button>
                   {/each}
                 </div>
               </section>

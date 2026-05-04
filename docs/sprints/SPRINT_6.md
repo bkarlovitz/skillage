@@ -38,7 +38,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Distinguish consumed MCP from OpenClaw-exposed MCP when evidence supports it.
   - Validation: Fixture demo answers whether an OpenClaw MCP item is consumed, exposed, or needs review.
 
-- [ ] **Task 6.9**: Add client-specific explanation rules
+- [x] **Task 6.9**: Add client-specific explanation rules
   - Encode explanation snippets and caveats for restart requirements, profile worlds, trust gates, managed/admin settings, local/private files, gateway mode, and schema mismatch.
   - Keep explanations source-backed and avoid claiming runtime activity unless tested.
   - Validation: Explanation tests verify expected caveats for each client-specific scenario.
