@@ -37,7 +37,17 @@ export interface RelationshipInference {
   targetResourceId?: string;
 }
 
-const orderedLabels = new Map<RelationshipLabel, number>(relationshipLabels.map((label, index) => [label, index]));
+const strongestLabelPriority = new Map<RelationshipLabel, number>([
+  ['conflict', 0],
+  ['identical', 1],
+  ['duplicate', 2],
+  ['shadowed', 3],
+  ['overridden', 4],
+  ['needs-review', 5],
+  ['similar', 6],
+  ['same-name-only', 7],
+  ['no-relationship-inferred', 8]
+]);
 
 function normalizeText(value: string | undefined): string {
   return (value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -201,8 +211,8 @@ export function inferCapabilityRelationship(left: CapabilityResource, right: Cap
 
 export function strongestRelationshipLabel(relationships: RelationshipInference[]): RelationshipLabel {
   return relationships.reduce<RelationshipLabel>((strongest, item) => {
-    const left = orderedLabels.get(item.label) ?? relationshipLabels.length;
-    const right = orderedLabels.get(strongest) ?? relationshipLabels.length;
+    const left = strongestLabelPriority.get(item.label) ?? relationshipLabels.length;
+    const right = strongestLabelPriority.get(strongest) ?? relationshipLabels.length;
     return left < right ? item.label : strongest;
   }, 'no-relationship-inferred');
 }

@@ -13,7 +13,7 @@ Demo a cross-client view that groups related capabilities, identifies duplicates
   - Build grouping keys for MCP servers, skills, instructions, rules, hooks, plugins, sensitive stores, and profiles using type, normalized name, command/package/url hints, source path, and client evidence.
   - Validation: Tests cover same MCP name with different command, same command with different names, and same skill name in different clients.
 
-- [ ] **Task 7.3**: Implement MCP cross-client duplicate analysis
+- [x] **Task 7.3**: Implement MCP cross-client duplicate analysis
   - Show MCP server instances across clients/scopes with source locations, configured/not-tested status, env/file-secret references, and relationship labels.
   - Validation: Tests cover duplicate MCP names across Claude Desktop/Codex/Cursor and same-name-only false positives.
 
