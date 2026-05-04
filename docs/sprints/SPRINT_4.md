@@ -14,7 +14,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Mark cache/quarantine artifacts as internal or temporary and keep them hidden by default unless the UI exposes an internal-artifacts filter.
   - Validation: Tests cover active user skills, bundled skills, optional skills, cache artifacts, and MCP config extraction.
 
-- [ ] **Task 4.3**: Represent Hermes sensitive files safely
+- [x] **Task 4.3**: Represent Hermes sensitive files safely
   - Detect Hermes environment files, auth files, logs, and sessions as sensitive or log/session store resources.
   - Show presence, path, size, and metadata only by default.
   - Validation: Tests prove Hermes `.env`, auth, log, and session fixtures do not expose raw content.

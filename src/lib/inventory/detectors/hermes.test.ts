@@ -119,4 +119,42 @@ mcpServers:
     expect(server?.metadata.package).toBe('@modelcontextprotocol/server-github');
     expect(server?.metadata.profileName).toBe('default');
   });
+
+  it('represents Hermes environment and auth files without raw content', () => {
+    const result = detectHermes([{
+      path: '/home/user/.hermes/profiles/default/.env',
+      content: 'HERMES_TOKEN=raw-secret-value',
+      sizeBytes: 28
+    }, {
+      path: '/home/user/.hermes/profiles/default/auth.json',
+      content: '{"token":"raw-auth-token"}',
+      sizeBytes: 24
+    }]);
+    const serialized = JSON.stringify(result);
+
+    expect(result.resources).toHaveLength(3);
+    expect(result.resources.filter((resource) => resource.resourceType === 'sensitive-store')).toHaveLength(2);
+    expect(result.resources.filter((resource) => resource.resourceType === 'sensitive-store').every((resource) => resource.contentPreview?.text === undefined)).toBe(true);
+    expect(result.skippedSensitiveStores).toHaveLength(2);
+    expect(serialized).not.toContain('raw-secret-value');
+    expect(serialized).not.toContain('raw-auth-token');
+  });
+
+  it('represents Hermes logs and sessions without raw content', () => {
+    const result = detectHermes([{
+      path: '/home/user/.hermes/profiles/default/logs/latest.log',
+      content: 'raw log body',
+      sizeBytes: 12
+    }, {
+      path: '/home/user/.hermes/profiles/default/sessions/session.json',
+      content: '{"messages":["raw session body"]}',
+      sizeBytes: 33
+    }]);
+    const serialized = JSON.stringify(result);
+
+    expect(result.resources.filter((resource) => resource.resourceType === 'log-session-store')).toHaveLength(2);
+    expect(result.resources.filter((resource) => resource.resourceType === 'log-session-store').every((resource) => resource.previewPolicy === 'metadata-only')).toBe(true);
+    expect(serialized).not.toContain('raw log body');
+    expect(serialized).not.toContain('raw session body');
+  });
 });

@@ -97,6 +97,69 @@ function isHermesSkill(file: DetectorFile): boolean {
   return isHermesFile(file) && basename(file.path) === 'SKILL.md';
 }
 
+function isHermesSensitiveStore(file: DetectorFile): boolean {
+  const normalized = comparablePath(file.path);
+  const base = basename(file.path).toLowerCase();
+  return isHermesFile(file)
+    && (base === '.env'
+      || base.startsWith('.env.')
+      || base.includes('auth')
+      || base.includes('credential')
+      || base.includes('secret')
+      || base.includes('token')
+      || normalized.includes('/secrets/')
+      || normalized.includes('/credentials/'));
+}
+
+function isHermesLogSessionStore(file: DetectorFile): boolean {
+  const normalized = comparablePath(file.path);
+  const base = basename(file.path).toLowerCase();
+  return isHermesFile(file)
+    && (normalized.includes('/logs/')
+      || normalized.includes('/sessions/')
+      || normalized.includes('/transcripts/')
+      || base.endsWith('.log')
+      || base.includes('session')
+      || base.includes('transcript'));
+}
+
+function safeStoreResource(file: DetectorFile, resourceType: 'sensitive-store' | 'log-session-store'): CapabilityResource {
+  const sourceEvidence = evidence({
+    path: file.path,
+    scannerRule: resourceType === 'sensitive-store' ? 'hermes-sensitive-store' : 'hermes-log-session-store',
+    matchedPathPattern: resourceType === 'sensitive-store' ? 'Hermes auth/env/secret store' : 'Hermes logs/sessions',
+    readStatus: 'skipped',
+    parseStatus: 'skipped'
+  });
+
+  return resource({
+    id: `${client}:${resourceType}:${stableId(file.path)}`,
+    name: basename(file.path),
+    description: resourceType === 'sensitive-store'
+      ? 'Hermes sensitive/auth store presence. Content is not read for inventory.'
+      : 'Hermes log/session store presence. Content is not read for inventory.',
+    client,
+    resourceType,
+    scope: scopeForPath(file.path),
+    status: 'sensitive',
+    statuses: ['found', 'sensitive'],
+    path: file.path,
+    evidence: [sourceEvidence],
+    warnings: [warning('secret-auth-concern', 'info', 'Hermes store content is represented as metadata only.', sourceEvidence)],
+    tags: resourceType === 'sensitive-store' ? ['sensitive'] : ['logs', 'sessions'],
+    metadata: {
+      profileName: profileNameOrDefault(file.path),
+      sizeBytes: file.sizeBytes ?? 0,
+      contentRead: false
+    },
+    contentPreview: {
+      policy: resourceType === 'sensitive-store' ? 'unread-sensitive' : 'metadata-only',
+      rawPreviewAllowed: false,
+      reason: 'Hermes sensitive/log/session content is not read by default.'
+    }
+  });
+}
+
 function genericHermesResource(file: DetectorFile): CapabilityResource {
   const resourceType = resourceTypeForPath(file.path);
   const scope = scopeForPath(file.path);
@@ -280,6 +343,22 @@ export function detectHermes(files: DetectorFile[]): DetectorResult {
   }
 
   for (const file of files.filter(isHermesFile)) {
+    if (isHermesSensitiveStore(file) || isHermesLogSessionStore(file)) {
+      const resourceType = isHermesSensitiveStore(file) ? 'sensitive-store' : 'log-session-store';
+      const store = safeStoreResource(file, resourceType);
+      result.resources.push(store);
+      result.skippedSensitiveStores.push({
+        id: `skipped:${store.id}`,
+        client,
+        resourceType,
+        scope: store.scope,
+        path: file.path,
+        reason: 'Hermes sensitive/log/session content is represented as metadata only.',
+        evidence: store.evidence[0]
+      });
+      continue;
+    }
+
     if (isHermesConfig(file)) {
       const parsed = parsedConfig(file);
       result.resources.push(genericHermesResource(file));
