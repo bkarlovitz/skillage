@@ -1,12 +1,10 @@
 use serde::Serialize;
 use std::collections::HashSet;
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use walkdir::WalkDir;
-
-#[cfg(any(test, windows))]
-use std::fs;
 
 const MAX_FILES_PER_ROOT: usize = 2_000;
 const MAX_TOTAL_FILES: usize = 5_000;
@@ -216,6 +214,14 @@ struct ScanSummary {
     warnings: Vec<ScannerWarning>,
 }
 
+#[derive(Debug, Default, Serialize)]
+struct ScannerRecords {
+    resources: Vec<CapabilityResource>,
+    read_errors: Vec<ScanReadError>,
+    parse_errors: Vec<ScanParseError>,
+    warnings: Vec<ScannerWarning>,
+}
+
 fn is_interesting(path: &Path) -> bool {
     let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
     let normalized = path.to_string_lossy().replace('\\', "/");
@@ -237,6 +243,9 @@ fn is_interesting(path: &Path) -> bool {
         || (normalized.contains("/.openclaw/") && file_name.ends_with(".md"))
         || (normalized.contains("/.claude/rules/") && file_name.ends_with(".md"))
         || (normalized.contains("/.codex/rules/") && file_name.ends_with(".rules"))
+        || (normalized.contains("/.cursor/") && file_name == "mcp.json")
+        || (normalized.contains("/.claude/") && file_name == "mcp.json")
+        || (normalized.contains("/.codex/") && file_name == "mcp.json")
         || is_sensitive_store_path(path)
         || is_log_session_store_path(path)
 }
@@ -600,6 +609,115 @@ fn resource_from_file(path: &Path, size_bytes: u64) -> CapabilityResource {
     }
 }
 
+fn scanner_warning(id: String, severity: &str, message: String, evidence: CapabilityEvidence) -> ScannerWarning {
+    ScannerWarning {
+        id,
+        severity: severity.to_string(),
+        message,
+        client: None,
+        evidence: Some(evidence),
+    }
+}
+
+fn warning_from_resource(message: String, severity: &str, evidence: CapabilityEvidence) -> CapabilityWarning {
+    CapabilityWarning {
+        kind: "parse-read-problem".to_string(),
+        severity: severity.to_string(),
+        message,
+        evidence: Some(evidence),
+    }
+}
+
+fn mark_resource_with_problem(resource: &mut CapabilityResource, status: &str, message: String, severity: &str) {
+    resource.status = status.to_string();
+    resource.statuses = vec!["found".to_string(), status.to_string()];
+    let evidence = resource
+        .evidence
+        .first()
+        .cloned()
+        .unwrap_or_else(|| source_evidence(Path::new(resource.path.as_deref().unwrap_or_default()), ScannerReadPolicy::MetadataOnly));
+    resource
+        .warnings
+        .push(warning_from_resource(message, severity, evidence));
+}
+
+fn read_error_record(path: &Path, message: String) -> ScanReadError {
+    ScanReadError {
+        id: format!("read-error:{}", stable_id(path)),
+        client: Some(client_for_path(path).to_string()),
+        path: path.to_string_lossy().to_string(),
+        message,
+        evidence: CapabilityEvidence {
+            source_path: Some(path.to_string_lossy().to_string()),
+            source_label: None,
+            scanner_rule: Some("read-error".to_string()),
+            matched_path_pattern: Some(basename(path)),
+            parsed_key_path: None,
+            included_from_path: None,
+            read_status: "unreadable".to_string(),
+            parse_status: "skipped".to_string(),
+        },
+    }
+}
+
+fn parse_error_record(path: &Path, message: String) -> ScanParseError {
+    ScanParseError {
+        id: format!("parse-error:{}", stable_id(path)),
+        client: Some(client_for_path(path).to_string()),
+        path: path.to_string_lossy().to_string(),
+        message,
+        evidence: CapabilityEvidence {
+            source_path: Some(path.to_string_lossy().to_string()),
+            source_label: None,
+            scanner_rule: Some("parse-error".to_string()),
+            matched_path_pattern: Some(basename(path)),
+            parsed_key_path: None,
+            included_from_path: None,
+            read_status: "read".to_string(),
+            parse_status: "parse-error".to_string(),
+        },
+    }
+}
+
+#[cfg(test)]
+fn missing_include_warning(included_from: &Path, missing_path: &Path) -> ScannerWarning {
+    scanner_warning(
+        format!("missing-include:{}", stable_id(missing_path)),
+        "warning",
+        format!("Included file is missing or unreadable: {}", missing_path.display()),
+        CapabilityEvidence {
+            source_path: Some(missing_path.to_string_lossy().to_string()),
+            source_label: Some("Missing include".to_string()),
+            scanner_rule: Some("missing-include".to_string()),
+            matched_path_pattern: Some(missing_path.to_string_lossy().to_string()),
+            parsed_key_path: None,
+            included_from_path: Some(included_from.to_string_lossy().to_string()),
+            read_status: "not-found".to_string(),
+            parse_status: "skipped".to_string(),
+        },
+    )
+}
+
+fn read_for_policy(path: &Path, policy: ScannerReadPolicy) -> Result<Option<String>, String> {
+    match policy {
+        ScannerReadPolicy::SafeMarkdownPreview | ScannerReadPolicy::RedactedPreview => {
+            fs::read_to_string(path).map(Some).map_err(|error| error.to_string())
+        }
+        ScannerReadPolicy::MetadataOnly | ScannerReadPolicy::UnreadSensitive => Ok(None),
+    }
+}
+
+fn validate_parse_if_applicable(path: &Path, content: Option<&str>) -> Result<(), String> {
+    let file_name = basename(path).to_lowercase();
+    if file_name.ends_with(".json") {
+        if let Some(content) = content {
+            serde_json::from_str::<serde_json::Value>(content).map_err(|error| error.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
 fn scan_root_record(root: &Path, label: &str, status: &str) -> ScanRoot {
     ScanRoot {
         path: root.to_string_lossy().to_string(),
@@ -727,38 +845,102 @@ fn standard_roots() -> Vec<PathBuf> {
     dedupe_roots(roots.into_iter().filter(|root| root.exists() && root.is_dir()).collect())
 }
 
-fn scan_existing_root(root: &Path, max_files: usize) -> Vec<CapabilityResource> {
-    let mut resources = Vec::new();
+fn scan_existing_root(root: &Path, max_files: usize) -> ScannerRecords {
+    let mut records = ScannerRecords::default();
     let walker = WalkDir::new(root)
         .follow_links(false)
         .max_depth(MAX_DEPTH)
         .into_iter()
         .filter_entry(|entry| !entry.file_type().is_dir() || !should_skip_dir(entry.path()));
 
-    for entry in walker.filter_map(Result::ok) {
-        if resources.len() >= max_files {
+    for entry in walker {
+        if records.resources.len() >= max_files {
             break;
         }
+
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                let path = error.path().map(Path::to_path_buf).unwrap_or_else(|| root.to_path_buf());
+                let evidence = source_evidence(&path, ScannerReadPolicy::MetadataOnly);
+                records.warnings.push(scanner_warning(
+                    format!("walk-error:{}", stable_id(&path)),
+                    "warning",
+                    format!("Failed to inspect {}: {error}", path.display()),
+                    evidence,
+                ));
+                continue;
+            }
+        };
 
         if entry.file_type().is_file() && is_interesting(entry.path()) {
             let metadata = match entry.metadata() {
                 Ok(metadata) => metadata,
                 Err(error) => {
-                    eprintln!("failed to stat {}: {error}", entry.path().display());
+                    let evidence = source_evidence(entry.path(), ScannerReadPolicy::MetadataOnly);
+                    records.warnings.push(scanner_warning(
+                        format!("stat-error:{}", stable_id(entry.path())),
+                        "warning",
+                        format!("Failed to stat {}: {error}", entry.path().display()),
+                        evidence,
+                    ));
                     continue;
                 }
             };
 
             if metadata.len() > MAX_FILE_BYTES {
-                eprintln!("skipping oversized file {}", entry.path().display());
+                let mut resource = resource_from_file(entry.path(), metadata.len());
+                mark_resource_with_problem(
+                    &mut resource,
+                    "needs-review",
+                    format!("File exceeds scanner size limit of {MAX_FILE_BYTES} bytes."),
+                    "warning",
+                );
+                records.warnings.push(scanner_warning(
+                    format!("oversized:{}", stable_id(entry.path())),
+                    "warning",
+                    format!("Skipped oversized file {}", entry.path().display()),
+                    source_evidence(entry.path(), ScannerReadPolicy::MetadataOnly),
+                ));
+                records.resources.push(resource);
                 continue;
             }
 
-            resources.push(resource_from_file(entry.path(), metadata.len()));
+            let mut resource = resource_from_file(entry.path(), metadata.len());
+            let policy = read_policy_for_path(entry.path());
+
+            match read_for_policy(entry.path(), policy) {
+                Ok(content) => {
+                    if let Err(error) = validate_parse_if_applicable(entry.path(), content.as_deref()) {
+                        let message = format!("Failed to parse {}: {error}", entry.path().display());
+                        mark_resource_with_problem(&mut resource, "parse-error", message.clone(), "error");
+                        records.parse_errors.push(parse_error_record(entry.path(), message.clone()));
+                        records.warnings.push(scanner_warning(
+                            format!("parse-error:{}", stable_id(entry.path())),
+                            "error",
+                            message,
+                            source_evidence(entry.path(), ScannerReadPolicy::RedactedPreview),
+                        ));
+                    }
+                }
+                Err(error) => {
+                    let message = format!("Failed to read {}: {error}", entry.path().display());
+                    mark_resource_with_problem(&mut resource, "read-error", message.clone(), "error");
+                    records.read_errors.push(read_error_record(entry.path(), message.clone()));
+                    records.warnings.push(scanner_warning(
+                        format!("read-error:{}", stable_id(entry.path())),
+                        "error",
+                        message,
+                        source_evidence(entry.path(), ScannerReadPolicy::MetadataOnly),
+                    ));
+                }
+            }
+
+            records.resources.push(resource);
         }
     }
 
-    resources
+    records
 }
 
 #[tauri::command]
@@ -773,7 +955,11 @@ fn scan_skill_files(root: String) -> Result<ScanSummary, String> {
 
     let mut summary = empty_scan_summary("local-root-scan");
     summary.scan_roots.push(scan_root_record(&root, "Selected scan root", "scanned"));
-    summary.resources = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+    let records = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+    summary.resources = records.resources;
+    summary.read_errors = records.read_errors;
+    summary.parse_errors = records.parse_errors;
+    summary.warnings = records.warnings;
     Ok(summary)
 }
 
@@ -789,7 +975,12 @@ fn scan_standard_skill_files() -> Result<ScanSummary, String> {
 
         summary.scan_roots.push(scan_root_record(&root, "Standard local location", "scanned"));
 
-        for file in scan_existing_root(&root, MAX_FILES_PER_ROOT) {
+        let records = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+        summary.read_errors.extend(records.read_errors);
+        summary.parse_errors.extend(records.parse_errors);
+        summary.warnings.extend(records.warnings);
+
+        for file in records.resources {
             if summary.resources.len() >= MAX_TOTAL_FILES {
                 break;
             }
@@ -848,7 +1039,7 @@ mod tests {
 
         let mut summary = empty_scan_summary("test-scan");
         summary.scan_roots.push(scan_root_record(&root, "Test root", "scanned"));
-        summary.resources = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+        summary.resources = scan_existing_root(&root, MAX_FILES_PER_ROOT).resources;
         let serialized = serde_json::to_string(&summary).expect("summary serializes");
 
         assert_eq!(summary.resources.len(), 1);
@@ -894,22 +1085,68 @@ mod tests {
         fs::write(root.join(".openclaw/sessions/latest.json"), "raw conversation log").expect("write session");
         fs::write(root.join(".codex/cache/traces/run.json"), "raw trace").expect("write trace");
 
-        let resources = scan_existing_root(&root, MAX_FILES_PER_ROOT);
-        let serialized = serde_json::to_string(&resources).expect("resources serialize");
+        let records = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+        let serialized = serde_json::to_string(&records.resources).expect("resources serialize");
 
-        assert_eq!(resources.len(), 3);
-        assert!(resources.iter().all(|resource| resource.preview_policy.as_deref() == Some("metadata-only")));
-        assert!(resources.iter().all(|resource| resource
+        assert_eq!(records.resources.len(), 3);
+        assert!(records.resources.iter().all(|resource| resource.preview_policy.as_deref() == Some("metadata-only")));
+        assert!(records.resources.iter().all(|resource| resource
             .content_preview
             .as_ref()
             .is_some_and(|preview| preview.text.is_none() && !preview.raw_preview_allowed)));
-        assert!(resources.iter().any(|resource| resource.resource_type == "sensitive-store"));
-        assert!(resources.iter().any(|resource| resource.resource_type == "log-session-store"));
+        assert!(records.resources.iter().any(|resource| resource.resource_type == "sensitive-store"));
+        assert!(records.resources.iter().any(|resource| resource.resource_type == "log-session-store"));
         assert!(!serialized.contains("raw-secret-value"));
         assert!(!serialized.contains("raw conversation log"));
         assert!(!serialized.contains("raw trace"));
 
         fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn invalid_json_config_produces_parse_error_records_without_raw_content() {
+        let root = unique_test_dir("parse-error");
+        fs::create_dir_all(root.join(".cursor")).expect("create cursor dir");
+        fs::write(root.join(".cursor/mcp.json"), "{ invalid json with token: raw-secret }").expect("write invalid json");
+
+        let records = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+        let serialized = serde_json::to_string(&records).expect("records serialize");
+
+        assert_eq!(records.resources.len(), 1);
+        assert_eq!(records.resources[0].status, "parse-error");
+        assert_eq!(records.parse_errors.len(), 1);
+        assert!(records.warnings.iter().any(|warning| warning.severity == "error"));
+        assert!(!serialized.contains("raw-secret"));
+
+        fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn oversized_files_are_visible_needs_review_records() {
+        let root = unique_test_dir("oversized");
+        fs::create_dir_all(&root).expect("create root");
+        fs::write(root.join("AGENTS.md"), vec![b'a'; MAX_FILE_BYTES as usize + 1]).expect("write oversized file");
+
+        let records = scan_existing_root(&root, MAX_FILES_PER_ROOT);
+
+        assert_eq!(records.resources.len(), 1);
+        assert_eq!(records.resources[0].status, "needs-review");
+        assert!(records.warnings.iter().any(|warning| warning.id.starts_with("oversized:")));
+
+        fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn simulated_read_and_missing_include_errors_have_user_visible_records() {
+        let unreadable = PathBuf::from("/repo/.cursor/mcp.json");
+        let read_error = read_error_record(&unreadable, "Permission denied".to_string());
+        let missing = missing_include_warning(&PathBuf::from("/repo/openclaw.json"), &PathBuf::from("/repo/missing.json"));
+
+        assert_eq!(read_error.evidence.read_status, "unreadable");
+        assert_eq!(read_error.evidence.parse_status, "skipped");
+        let evidence = missing.evidence.expect("missing include evidence");
+        assert_eq!(evidence.included_from_path.as_deref(), Some("/repo/openclaw.json"));
+        assert_eq!(evidence.read_status, "not-found");
     }
 
     #[test]

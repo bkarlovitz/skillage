@@ -35,7 +35,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Add helpers for global, project-shared, local-private, profile-scoped, managed-admin, plugin-bundled, and unknown scope evidence.
   - Validation: Path tests cover `/home/user/repo`, `C:\\Users\\user\\repo`, `\\wsl.localhost\\Ubuntu\\home\\user\\repo`, and `\\wsl$\\Ubuntu\\home\\user\\repo`.
 
-- [ ] **Task 2.7**: Capture scanner errors as user-visible records
+- [x] **Task 2.7**: Capture scanner errors as user-visible records
   - Return read errors, stat errors, parse errors, oversized-file skips, permission denials, and missing included files as warnings/resources instead of only logging to stderr.
   - Validation: Rust tests with unreadable or simulated error entries produce `read-error` or `needs-review` statuses.
 
