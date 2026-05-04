@@ -118,6 +118,38 @@ function hasCodexTrustGate(resource: CapabilityResource): boolean {
       || resource.warnings.some((warning) => warning.message.toLowerCase().includes('trust')));
 }
 
+function hermesProfileName(resource: CapabilityResource): string {
+  const profileName = stringMetadata(resource, 'profileName');
+  if (profileName) return profileName;
+  if (resource.scope === 'profile') return resource.name;
+  if (resource.scope === 'plugin-bundled') return stringMetadata(resource, 'bundleKind') || 'plugin-bundled';
+  return resource.scope;
+}
+
+function hermesWorldValue(resource: CapabilityResource): string {
+  return `${hermesProfileName(resource)} · ${resource.resourceType}`;
+}
+
+function hermesMcpValue(resource: CapabilityResource): string {
+  const keyPath = resource.evidence[0]?.parsedKeyPath ?? stringMetadata(resource, 'sourceKeyPath');
+  return keyPath ? `${hermesProfileName(resource)} · ${keyPath}` : hermesProfileName(resource);
+}
+
+function hermesProfileCaveatRows(resources: CapabilityResource[]): ClientSpecificDetailRow[] {
+  const profileRows = resources
+    .filter((resource) => resource.resourceType === 'profile')
+    .map((resource) => ({
+      ...row(resource, `${hermesProfileName(resource)} · distinct profile world`),
+      caveat: 'Hermes profile resources are reported separately and are not merged across profile names.'
+    }));
+  const warningRows = resources
+    .filter((resource) => resource.resourceType !== 'profile'
+      && (resource.warnings.length > 0 || booleanMetadata(resource, 'internalArtifact')))
+    .map((resource) => row(resource, firstCaveat(resource) || `${hermesProfileName(resource)} · internal artifact`));
+
+  return [...profileRows, ...warningRows];
+}
+
 export function buildClaudeCodeDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   const resources = detail.resources;
   const globalSettings = resources.filter((resource) => resource.resourceType === 'config-file' && resource.scope === 'global');
@@ -225,10 +257,38 @@ export function buildCodexDetailSections(detail: ClientDetailViewModel): ClientS
   ].filter((item) => item.rows.length > 0);
 }
 
+export function buildHermesDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
+  const resources = detail.resources;
+  const profiles = resources.filter((resource) => resource.resourceType === 'profile');
+  const profileResources = resources.filter((resource) => resource.scope === 'profile' && resource.resourceType !== 'profile');
+  const mcpServers = resources.filter((resource) => resource.resourceType === 'mcp-server');
+  const skills = resources.filter((resource) => resource.resourceType === 'skill');
+  const configs = resources.filter((resource) => resource.resourceType === 'config-file');
+  const sensitiveStores = resources.filter((resource) => resource.resourceType === 'sensitive-store');
+  const logSessions = resources.filter((resource) => resource.resourceType === 'log-session-store');
+
+  return [
+    section('hermes-profiles', 'Profile Worlds', 'Default and named Hermes profiles are shown as separate environments.', profiles, (resource) => `${hermesProfileName(resource)} · not merged`),
+    section('hermes-profile-resources', 'Profile Resources', 'Profile-scoped Hermes resources retain their profile boundary.', profileResources, hermesWorldValue),
+    section('hermes-mcp', 'Profile MCP Servers', 'Hermes MCP servers are listed under the profile or scope that introduced them.', mcpServers, hermesMcpValue),
+    section('hermes-skills', 'Skills', 'Hermes user, profile, bundled, cached, and quarantined skills.', skills, hermesWorldValue),
+    section('hermes-config', 'Config Files', 'Hermes config files that define profile behavior and MCP metadata.', configs, hermesWorldValue),
+    section('hermes-sensitive-stores', 'Environment And Auth Stores', 'Hermes environment/auth stores are represented without raw secret content.', sensitiveStores, (resource) => `${hermesProfileName(resource)} · ${resource.previewPolicy ?? 'unread-sensitive'}`),
+    section('hermes-logs-sessions', 'Logs And Sessions', 'Hermes logs, transcripts, and sessions are metadata-only.', logSessions, (resource) => `${hermesProfileName(resource)} · ${resource.previewPolicy ?? 'metadata-only'}`),
+    {
+      id: 'hermes-profile-caveats',
+      title: 'Profile Caveats',
+      description: 'Profile isolation and internal artifact caveats that affect interpretation.',
+      rows: hermesProfileCaveatRows(resources)
+    }
+  ].filter((item) => item.rows.length > 0);
+}
+
 export function buildClientSpecificSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   if (detail.client === 'claude-code') return buildClaudeCodeDetailSections(detail);
   if (detail.client === 'claude-desktop') return buildClaudeDesktopDetailSections(detail);
   if (detail.client === 'codex') return buildCodexDetailSections(detail);
   if (detail.client === 'cursor') return buildCursorDetailSections(detail);
+  if (detail.client === 'hermes') return buildHermesDetailSections(detail);
   return [];
 }

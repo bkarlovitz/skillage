@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildClientDetailModel } from './clientSummary';
-import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections, buildCodexDetailSections, buildCursorDetailSections } from './clientSpecificDetails';
+import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections, buildCodexDetailSections, buildCursorDetailSections, buildHermesDetailSections } from './clientSpecificDetails';
 import { detectClaudeCode } from './detectors/claudeCode';
 import { detectCodex } from './detectors/codex';
 import { detectCursor } from './detectors/cursor';
+import { detectHermes } from './detectors/hermes';
 import { getFixtureScenario } from './fixtures';
 import { createEmptyScanSummary } from './scan';
 import type { KnownClientLocation } from './scan';
@@ -251,5 +252,93 @@ describe('Cursor client detail sections', () => {
     expect(full.find((section) => section.id === 'cursor-global-mcp')?.rows[0].path).toBe('~/.cursor/mcp.json');
     expect(full.find((section) => section.id === 'cursor-project-mcp')?.rows[0].path).toBe('/repo/.cursor/mcp.json');
     expect(partial.find((section) => section.id === 'cursor-parse-schema-warnings')?.rows[0].value).toContain('Unexpected token');
+  });
+});
+
+describe('Hermes client detail sections', () => {
+  it('shows profiles as distinct worlds with profile MCP, skills, config, stores, sessions, and caveats', () => {
+    const detected = detectHermes([{
+      path: '/home/user/.hermes/profiles/default/config.yaml',
+      content: `
+mcpServers:
+  github:
+    command: npx
+`
+    }, {
+      path: '/home/user/.hermes/profiles/work/config.yaml',
+      content: `
+mcpServers:
+  docs:
+    command: node
+`
+    }, {
+      path: '/home/user/.hermes/profiles/default/skills/reviewer/SKILL.md',
+      content: '# Reviewer'
+    }, {
+      path: '/home/user/.hermes/profiles/work/skills/reviewer/SKILL.md',
+      content: '# Reviewer'
+    }, {
+      path: '/home/user/.hermes/profiles/work/.env',
+      content: 'TOKEN=secret',
+      sizeBytes: 12
+    }, {
+      path: '/home/user/.hermes/profiles/default/sessions/latest.json',
+      content: '{"messages":["raw"]}',
+      sizeBytes: 20
+    }, {
+      path: '/home/user/.hermes/skills/.hub/quarantine/bad/SKILL.md',
+      content: '# Bad'
+    }]);
+    const detail = buildClientDetailModel(createEmptyScanSummary({
+      resources: detected.resources,
+      skippedSensitiveStores: detected.skippedSensitiveStores
+    }), 'hermes');
+
+    const sections = buildHermesDetailSections(detail);
+    const ids = sections.map((section) => section.id);
+    const profiles = sections.find((section) => section.id === 'hermes-profiles');
+    const mcp = sections.find((section) => section.id === 'hermes-mcp');
+    const skills = sections.find((section) => section.id === 'hermes-skills');
+    const stores = sections.find((section) => section.id === 'hermes-sensitive-stores');
+    const sessions = sections.find((section) => section.id === 'hermes-logs-sessions');
+    const caveats = sections.find((section) => section.id === 'hermes-profile-caveats');
+
+    expect(ids).toEqual(expect.arrayContaining([
+      'hermes-profiles',
+      'hermes-profile-resources',
+      'hermes-mcp',
+      'hermes-skills',
+      'hermes-config',
+      'hermes-sensitive-stores',
+      'hermes-logs-sessions',
+      'hermes-profile-caveats'
+    ]));
+    expect(profiles?.rows.map((row) => row.label)).toEqual(['default', 'work']);
+    expect(mcp?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'github', value: 'default · mcpServers.github' }),
+      expect.objectContaining({ label: 'docs', value: 'work · mcpServers.docs' })
+    ]));
+    expect(skills?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'reviewer', value: 'default · skill' }),
+      expect.objectContaining({ label: 'reviewer', value: 'work · skill' })
+    ]));
+    expect(stores?.rows[0].value).toContain('work');
+    expect(sessions?.rows[0].value).toContain('default');
+    expect(caveats?.rows.some((row) => row.caveat?.includes('not merged across profile names'))).toBe(true);
+    expect(caveats?.rows.some((row) => row.value.includes('quarantine artifact'))).toBe(true);
+  });
+
+  it('fixture data shows two Hermes profiles without merging their resources', () => {
+    const sections = buildHermesDetailSections(buildClientDetailModel(getFixtureScenario('full-machine').summary, 'hermes'));
+    const profiles = sections.find((section) => section.id === 'hermes-profiles');
+    const mcp = sections.find((section) => section.id === 'hermes-mcp');
+    const skills = sections.find((section) => section.id === 'hermes-skills');
+
+    expect(profiles?.rows.map((row) => row.label)).toEqual(['default', 'work']);
+    expect(mcp?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'github', value: 'default · mcpServers.github' }),
+      expect.objectContaining({ label: 'docs', value: 'work · mcpServers.docs' })
+    ]));
+    expect(skills?.rows.filter((row) => row.label === 'reviewer').map((row) => row.value)).toEqual(['default · skill', 'work · skill']);
   });
 });

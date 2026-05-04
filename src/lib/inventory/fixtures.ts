@@ -335,7 +335,111 @@ const fullMachineResources = [
     resourceType: 'profile',
     scope: 'profile',
     path: '~/.hermes/profiles/default',
-    evidence: [evidence('~/.hermes/profiles/default', 'hermes-profile', '~/.hermes/profiles/*')]
+    evidence: [evidence('~/.hermes/profiles/default', 'hermes-profile', '~/.hermes/profiles/*')],
+    tags: ['profile'],
+    metadata: { profileName: 'default', mergedAcrossProfiles: false }
+  }),
+  resource({
+    id: 'full-hermes-default-config',
+    name: 'config.yaml',
+    description: 'Hermes default profile configuration.',
+    client: 'hermes',
+    resourceType: 'config-file',
+    scope: 'profile',
+    path: '~/.hermes/profiles/default/config.yaml',
+    evidence: [evidence('~/.hermes/profiles/default/config.yaml', 'hermes-config', 'config.yaml')],
+    tags: ['config'],
+    metadata: { profileName: 'default' }
+  }),
+  resource({
+    id: 'full-hermes-default-mcp',
+    name: 'github',
+    description: 'Hermes default profile MCP server definition.',
+    client: 'hermes',
+    resourceType: 'mcp-server',
+    scope: 'profile',
+    status: 'not-tested',
+    statuses: ['found', 'not-tested'],
+    path: '~/.hermes/profiles/default/config.yaml',
+    evidence: [evidence('~/.hermes/profiles/default/config.yaml', 'hermes-mcp', 'config.yaml', 'mcpServers.github')],
+    tags: ['mcp'],
+    metadata: { profileName: 'default', sourceKeyPath: 'mcpServers.github' }
+  }),
+  resource({
+    id: 'full-hermes-default-skill',
+    name: 'reviewer',
+    description: 'Hermes default profile skill.',
+    client: 'hermes',
+    resourceType: 'skill',
+    scope: 'profile',
+    path: '~/.hermes/profiles/default/skills/reviewer/SKILL.md',
+    evidence: [evidence('~/.hermes/profiles/default/skills/reviewer/SKILL.md', 'hermes-skill', 'SKILL.md')],
+    tags: ['skill'],
+    metadata: { profileName: 'default' }
+  }),
+  resource({
+    id: 'full-hermes-work-profile',
+    name: 'work',
+    description: 'Hermes work profile environment.',
+    client: 'hermes',
+    resourceType: 'profile',
+    scope: 'profile',
+    path: '~/.hermes/profiles/work',
+    evidence: [evidence('~/.hermes/profiles/work', 'hermes-profile', '~/.hermes/profiles/*')],
+    tags: ['profile'],
+    metadata: { profileName: 'work', mergedAcrossProfiles: false }
+  }),
+  resource({
+    id: 'full-hermes-work-config',
+    name: 'config.yaml',
+    description: 'Hermes work profile configuration.',
+    client: 'hermes',
+    resourceType: 'config-file',
+    scope: 'profile',
+    path: '~/.hermes/profiles/work/config.yaml',
+    evidence: [evidence('~/.hermes/profiles/work/config.yaml', 'hermes-config', 'config.yaml')],
+    tags: ['config'],
+    metadata: { profileName: 'work' }
+  }),
+  resource({
+    id: 'full-hermes-work-mcp',
+    name: 'docs',
+    description: 'Hermes work profile MCP server definition.',
+    client: 'hermes',
+    resourceType: 'mcp-server',
+    scope: 'profile',
+    status: 'not-tested',
+    statuses: ['found', 'not-tested'],
+    path: '~/.hermes/profiles/work/config.yaml',
+    evidence: [evidence('~/.hermes/profiles/work/config.yaml', 'hermes-mcp', 'config.yaml', 'mcpServers.docs')],
+    tags: ['mcp'],
+    metadata: { profileName: 'work', sourceKeyPath: 'mcpServers.docs' }
+  }),
+  resource({
+    id: 'full-hermes-work-skill',
+    name: 'reviewer',
+    description: 'Hermes work profile skill with the same name as the default profile skill.',
+    client: 'hermes',
+    resourceType: 'skill',
+    scope: 'profile',
+    path: '~/.hermes/profiles/work/skills/reviewer/SKILL.md',
+    evidence: [evidence('~/.hermes/profiles/work/skills/reviewer/SKILL.md', 'hermes-skill', 'SKILL.md')],
+    tags: ['skill'],
+    metadata: { profileName: 'work' }
+  }),
+  resource({
+    id: 'full-hermes-work-sessions',
+    name: 'Hermes work sessions',
+    description: 'Hermes work profile session store represented as metadata only.',
+    client: 'hermes',
+    resourceType: 'log-session-store',
+    scope: 'profile',
+    status: 'sensitive',
+    statuses: ['found', 'sensitive'],
+    path: '~/.hermes/profiles/work/sessions',
+    evidence: [evidence('~/.hermes/profiles/work/sessions', 'hermes-log-session-store', '~/.hermes/profiles/*/sessions')],
+    tags: ['sessions'],
+    metadata: { profileName: 'work' }
   }),
   resource({
     id: 'full-openclaw-workspace',
@@ -357,7 +461,8 @@ const fullMachineResources = [
     path: '~/.hermes/profiles/default/auth.json',
     evidence: [evidence('~/.hermes/profiles/default/auth.json', 'hermes-auth-store', '~/.hermes/profiles/*/auth.json')],
     statuses: ['found', 'sensitive'],
-    tags: ['sensitive']
+    tags: ['sensitive'],
+    metadata: { profileName: 'default' }
   }),
   resource({
     id: 'full-openclaw-sessions',

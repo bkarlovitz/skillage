@@ -29,7 +29,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Show layered user, project, system/admin, and managed resources; MCP servers; AGENTS files; skills; rules; hooks; custom agents; plugins; auth stores; and trust-gated project caveats.
   - Validation: Fixture demo answers which Codex layer introduced a resource and whether activation is trust-gated or unknown.
 
-- [ ] **Task 6.7**: Implement Hermes detail view
+- [x] **Task 6.7**: Implement Hermes detail view
   - Show default and named profiles as distinct worlds, with MCP servers, skills, config, environment/auth files, log/session presence, and profile-specific caveats.
   - Validation: Fixture demo shows two Hermes profiles without merging their resources.
 
