@@ -19,7 +19,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Show presence, path, size, and metadata only by default.
   - Validation: Tests prove Hermes `.env`, auth, log, and session fixtures do not expose raw content.
 
-- [ ] **Task 4.4**: Implement OpenClaw state and profile discovery
+- [x] **Task 4.4**: Implement OpenClaw state and profile discovery
   - Detect OpenClaw state directories, profiles, workspaces, config files, included config files, agents, skills, plugins/extensions, and migration/import sources where present.
   - Represent included-from evidence for split config files.
   - Validation: OpenClaw tests cover base state, profile resources, included config, missing include, and migration source detection.
