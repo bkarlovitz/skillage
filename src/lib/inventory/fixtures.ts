@@ -140,7 +140,8 @@ const fullMachineResources = [
     statuses: ['found', 'not-tested'],
     path: '~/Library/Application Support/Claude/claude_desktop_config.json',
     evidence: [evidence('~/Library/Application Support/Claude/claude_desktop_config.json', 'claude-desktop-mcp', 'claude_desktop_config.json', 'mcpServers.github')],
-    tags: ['mcp']
+    tags: ['mcp'],
+    metadata: { command: 'npx', args: ['-y', '@mcp/github'], package: '@mcp/github', envVars: ['GITHUB_TOKEN'] }
   }),
   resource({
     id: 'full-claude-desktop-logs',
@@ -193,7 +194,7 @@ const fullMachineResources = [
     path: '~/.codex/config.toml',
     evidence: [evidence('~/.codex/config.toml', 'codex-mcp', 'config.toml', 'mcp_servers.github')],
     tags: ['mcp'],
-    metadata: { layer: 'global', sourceKeyPath: 'mcp_servers.github' }
+    metadata: { layer: 'global', sourceKeyPath: 'mcp_servers.github', command: 'npx', args: ['-y', '@mcp/github'], package: '@mcp/github', envVars: ['GITHUB_TOKEN'] }
   }),
   resource({
     id: 'full-codex-managed-config',
@@ -514,6 +515,17 @@ const fullMachineResources = [
     path: '~/.openclaw/workspaces/uwchlan',
     evidence: [evidence('~/.openclaw/workspaces/uwchlan', 'openclaw-workspace', '~/.openclaw/workspaces/*')],
     metadata: { workspaceName: 'uwchlan' }
+  }),
+  resource({
+    id: 'full-openclaw-global-skill',
+    name: 'reviewer',
+    description: 'OpenClaw global reviewer skill.',
+    client: 'openclaw',
+    resourceType: 'skill',
+    scope: 'global',
+    path: '~/.openclaw/skills/reviewer/SKILL.md',
+    evidence: [evidence('~/.openclaw/skills/reviewer/SKILL.md', 'openclaw-skill', 'SKILL.md')],
+    tags: ['skill']
   }),
   resource({
     id: 'full-openclaw-workspace-skill',

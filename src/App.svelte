@@ -4,6 +4,7 @@
   import { buildClientSpecificExplanations } from './lib/inventory/clientExplanations';
   import { buildClientSpecificSections } from './lib/inventory/clientSpecificDetails';
   import { buildClientDetailModels, summarizeCoreClients } from './lib/inventory/clientSummary';
+  import { buildCrossClientViewModel } from './lib/inventory/crossClientViewModel';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import { projectInventoryStates } from './lib/inventory/project/states';
   import { buildSafeResourceDetailPanels } from './lib/inventory/safeDetailPanels';
@@ -102,24 +103,7 @@
     ...activeScanSummary.skippedSensitiveStores.map((store) => ({ id: store.id, severity: 'warning', label: 'Skipped sensitive', message: store.reason, path: store.path })),
     ...activeScanSummary.warnings.map((warning) => ({ id: warning.id, severity: warning.severity, label: 'Scanner warning', message: warning.message, path: warning.evidence?.sourcePath ?? warning.evidence?.sourceLabel ?? '' }))
   ]);
-  const crossClientGroups = $derived(Object.values(items.reduce<Record<string, { key: string; name: string; kind: string; rows: CapabilityResource[]; clients: string[]; scopes: string[]; warnings: number }>>((groups, item) => {
-    const key = `${item.name.toLowerCase()}::${item.resourceType}`;
-    const group = groups[key] ?? {
-      key,
-      name: item.name,
-      kind: item.resourceType,
-      rows: [],
-      clients: [],
-      scopes: [],
-      warnings: 0
-    };
-    group.rows.push(item);
-    group.clients = Array.from(new Set([...group.clients, item.client]));
-    group.scopes = Array.from(new Set([...group.scopes, item.scope]));
-    group.warnings += item.warnings.length;
-    groups[key] = group;
-    return groups;
-  }, {})).sort((a, b) => b.clients.length - a.clients.length || a.name.localeCompare(b.name)));
+  const crossClientGroups = $derived(buildCrossClientViewModel(items));
 
   function selectItem(id: string) {
     selectedId = id;
@@ -961,23 +945,32 @@
               <tr>
                 <th class="name-column" scope="col">Capability</th>
                 <th class="kind-column" scope="col">Type</th>
+                <th scope="col">Relationship</th>
                 <th scope="col">Clients</th>
                 <th scope="col">Scopes</th>
-                <th class="issues-column" scope="col">Warnings</th>
+                <th scope="col">Sources</th>
+                <th scope="col">Notes</th>
               </tr>
             </thead>
             <tbody>
               {#each crossClientGroups as group (group.key)}
                 <tr>
-                  <td><strong>{group.name}</strong></td>
-                  <td>{group.kind}</td>
+                  <td>
+                    <button class="table-name-button" onclick={() => group.rows[0]?.resourceId ? selectItem(group.rows[0].resourceId) : undefined}>
+                      <strong>{group.name}</strong>
+                      <span>{group.rows.length} instance{group.rows.length === 1 ? '' : 's'}</span>
+                    </button>
+                  </td>
+                  <td>{group.resourceType}</td>
+                  <td><span class="badge">{group.relationshipLabel}</span></td>
                   <td>{group.clients.join(', ')}</td>
                   <td>{group.scopes.join(', ')}</td>
-                  <td>{group.warnings}</td>
+                  <td>{group.sourceLocations.slice(0, 2).join(', ')}{group.sourceLocations.length > 2 ? ` +${group.sourceLocations.length - 2}` : ''}</td>
+                  <td>{group.notes[0] ?? 'No relationship note.'}</td>
                 </tr>
               {:else}
                 <tr>
-                  <td colspan="5"><div class="empty table-empty">No capability groups in this data set.</div></td>
+                  <td colspan="7"><div class="empty table-empty">No capability groups in this data set.</div></td>
                 </tr>
               {/each}
             </tbody>
