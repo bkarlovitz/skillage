@@ -3,6 +3,7 @@
   import { findCapabilityResourceById } from './lib/detail';
   import { summarizeCoreClients } from './lib/inventory/clientSummary';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
+  import { projectInventoryStates } from './lib/inventory/project/states';
   import type { ScanSummary } from './lib/inventory/scan';
   import { filterCapabilityResources } from './lib/inventory/tableModel';
   import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
@@ -65,6 +66,7 @@
   const projectLocalRows = $derived(projectRows.filter((item) => item.scope === 'local-private'));
   const projectSharedMetadataRows = $derived(projectRows.filter((item) => item.metadata.gitFileState || item.metadata.collaboratorVisibility));
   const projectWarningRows = $derived(projectRows.filter((item) => item.warnings.length || item.metadata.projectRiskCategories));
+  const projectStateRows = $derived(projectInventoryStates(activeScanSummary, projectRows.length));
   const projectEffectiveRows = $derived(projectRows.filter((item) => {
     const states = activationStates(item);
     return states.includes('active')
@@ -600,6 +602,17 @@
       </section>
 
       {#if projectSelectionStatus}<p class="status-line">{projectSelectionStatus}</p>{/if}
+
+      {#if projectStateRows.length}
+        <section class="project-state-list" aria-label="Project inventory states">
+          {#each projectStateRows as state (state.kind)}
+            <article class:warning-state={state.severity === 'warning'} class:error-state={state.severity === 'error'} class="project-state">
+              <strong>{state.title}</strong>
+              <span>{state.detail}</span>
+            </article>
+          {/each}
+        </section>
+      {/if}
 
       <section class="project-summary-grid" aria-label="Project inventory summary">
         <article class="metadata-panel">

@@ -509,6 +509,29 @@ input::placeholder { color: var(--text-subtle); }
   gap: 14px;
   margin-bottom: 14px;
 }
+.project-state-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.project-state {
+  display: grid;
+  gap: 3px;
+  border: 1px solid color-mix(in srgb, var(--info) 28%, var(--border-subtle));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--info) 8%, var(--surface));
+  padding: 10px 12px;
+}
+.project-state strong { color: var(--text); font-size: 13px; }
+.project-state span { color: var(--text-muted); font-size: 12px; }
+.project-state.warning-state {
+  border-color: color-mix(in srgb, var(--warning) 32%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+}
+.project-state.error-state {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border-subtle));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
 .project-meta { margin-bottom: 0; }
 .project-section {
   min-width: 0;

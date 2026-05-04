@@ -51,7 +51,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Add sections for project resources, inherited global/profile resources, local/private resources, shared-with-collaborators metadata, warnings/caveats, and best-effort effective view.
   - Validation: `npm run check` and `npm run build` pass; fixture demo shows a project with inherited global MCP and a project-scoped warning.
 
-- [ ] **Task 5.11**: Add project inventory empty and error states
+- [x] **Task 5.11**: Add project inventory empty and error states
   - Show clear states for no project selected, selected folder unavailable, no resources found, read errors, and git unavailable.
   - Validation: UI tests or fixture tests cover each state without falling back to demo data.
 
