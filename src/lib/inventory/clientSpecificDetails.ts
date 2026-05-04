@@ -150,6 +150,39 @@ function hermesProfileCaveatRows(resources: CapabilityResource[]): ClientSpecifi
   return [...profileRows, ...warningRows];
 }
 
+function openClawContext(resource: CapabilityResource): string {
+  const profileName = stringMetadata(resource, 'profileName');
+  if (profileName) return `profile:${profileName}`;
+  const workspaceName = stringMetadata(resource, 'workspaceName');
+  if (workspaceName) return `workspace:${workspaceName}`;
+  return resource.scope;
+}
+
+function openClawStorePolicy(resource: CapabilityResource): string {
+  return resource.contentPreview?.policy ?? resource.previewPolicy ?? 'metadata-only';
+}
+
+function openClawMcpRole(resource: CapabilityResource): string {
+  return stringMetadata(resource, 'mcpRole') ?? 'unknown';
+}
+
+function openClawMcpValue(resource: CapabilityResource): string {
+  const keyPath = resource.evidence[0]?.parsedKeyPath ?? stringMetadata(resource, 'sourceKeyPath');
+  const value = `${openClawMcpRole(resource)} · ${resource.status}`;
+  return keyPath ? `${value} · ${keyPath}` : value;
+}
+
+function openClawIncludedFrom(resource: CapabilityResource): string {
+  return resource.evidence.find((item) => item.includedFromPath)?.includedFromPath
+    ?? stringMetadata(resource, 'includedFromPath')
+    ?? 'unknown include source';
+}
+
+function hasOpenClawGatewayCaveat(resource: CapabilityResource): boolean {
+  return booleanMetadata(resource, 'gatewayOrRemoteMode')
+    || resource.warnings.some((warning) => warning.message.toLowerCase().includes('gateway/remote'));
+}
+
 export function buildClaudeCodeDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   const resources = detail.resources;
   const globalSettings = resources.filter((resource) => resource.resourceType === 'config-file' && resource.scope === 'global');
@@ -284,11 +317,43 @@ export function buildHermesDetailSections(detail: ClientDetailViewModel): Client
   ].filter((item) => item.rows.length > 0);
 }
 
+export function buildOpenClawDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
+  const resources = detail.resources;
+  const stateDirs = resources.filter((resource) => resource.resourceType === 'client-installation');
+  const profiles = resources.filter((resource) => resource.resourceType === 'profile');
+  const includedConfigs = resources.filter((resource) => resource.evidence.some((item) => item.includedFromPath) || Boolean(stringMetadata(resource, 'includedFromPath')));
+  const agents = resources.filter((resource) => resource.resourceType === 'custom-agent');
+  const workspaces = resources.filter((resource) => resource.resourceType === 'workspace');
+  const skills = resources.filter((resource) => resource.resourceType === 'skill');
+  const mcpResources = resources.filter((resource) => resource.resourceType === 'mcp-server');
+  const plugins = resources.filter((resource) => resource.resourceType === 'plugin');
+  const sensitiveStores = resources.filter((resource) => resource.resourceType === 'sensitive-store');
+  const logsSessionsMemory = resources.filter((resource) => resource.resourceType === 'log-session-store');
+  const migrationSources = resources.filter((resource) => resource.resourceType === 'migration-import-source');
+  const gatewayCaveats = resources.filter(hasOpenClawGatewayCaveat);
+
+  return [
+    section('openclaw-state', 'State Directories', 'OpenClaw local state roots discovered on this machine.', stateDirs, (resource) => stringMetadata(resource, 'stateRoot') ?? sourcePath(resource)),
+    section('openclaw-profiles', 'Profiles', 'OpenClaw profile worlds.', profiles, openClawContext),
+    section('openclaw-includes', 'Included Config Files', 'Config files included from another OpenClaw config.', includedConfigs, (resource) => `included from ${openClawIncludedFrom(resource)}`),
+    section('openclaw-agents', 'Agents', 'OpenClaw custom agents.', agents, openClawContext),
+    section('openclaw-workspaces', 'Workspaces', 'OpenClaw workspace-local state and resources.', workspaces, openClawContext),
+    section('openclaw-skills', 'Skills', 'OpenClaw skills, including precedence and shadowing state.', skills, (resource) => `${openClawContext(resource)} · ${resource.status}`),
+    section('openclaw-mcp', 'MCP Resources', 'OpenClaw MCP resources marked as consumed, exposed, or needing review when ambiguous.', mcpResources, openClawMcpValue),
+    section('openclaw-plugins', 'Plugins And Extensions', 'OpenClaw plugins and extensions.', plugins, openClawContext),
+    section('openclaw-sensitive-stores', 'Sensitive Stores', 'OpenClaw credential, token, and auth stores are represented without raw content.', sensitiveStores, (resource) => `${openClawContext(resource)} · ${openClawStorePolicy(resource)}`),
+    section('openclaw-logs-sessions-memory', 'Logs Sessions Memory', 'OpenClaw logs, sessions, traces, and memory stores are metadata-only.', logsSessionsMemory, (resource) => `${openClawContext(resource)} · ${openClawStorePolicy(resource)}`),
+    section('openclaw-migrations', 'Migration Sources', 'OpenClaw imported or migrated resources from other clients.', migrationSources, openClawContext),
+    section('openclaw-gateway-caveats', 'Gateway Caveats', 'Gateway/remote mode means local inventory may not own the full runtime state.', gatewayCaveats, (resource) => firstCaveat(resource) || 'gateway/remote mode')
+  ].filter((item) => item.rows.length > 0);
+}
+
 export function buildClientSpecificSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   if (detail.client === 'claude-code') return buildClaudeCodeDetailSections(detail);
   if (detail.client === 'claude-desktop') return buildClaudeDesktopDetailSections(detail);
   if (detail.client === 'codex') return buildCodexDetailSections(detail);
   if (detail.client === 'cursor') return buildCursorDetailSections(detail);
   if (detail.client === 'hermes') return buildHermesDetailSections(detail);
+  if (detail.client === 'openclaw') return buildOpenClawDetailSections(detail);
   return [];
 }

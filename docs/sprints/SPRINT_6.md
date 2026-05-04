@@ -33,7 +33,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Show default and named profiles as distinct worlds, with MCP servers, skills, config, environment/auth files, log/session presence, and profile-specific caveats.
   - Validation: Fixture demo shows two Hermes profiles without merging their resources.
 
-- [ ] **Task 6.8**: Implement OpenClaw detail view
+- [x] **Task 6.8**: Implement OpenClaw detail view
   - Show state directories, profiles, included config files, agents, workspaces, skills, MCP resources, plugins/extensions, sensitive stores, logs, sessions, memory stores, migration sources, and gateway caveats.
   - Distinguish consumed MCP from OpenClaw-exposed MCP when evidence supports it.
   - Validation: Fixture demo answers whether an OpenClaw MCP item is consumed, exposed, or needs review.

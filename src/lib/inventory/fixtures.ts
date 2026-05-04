@@ -442,6 +442,69 @@ const fullMachineResources = [
     metadata: { profileName: 'work' }
   }),
   resource({
+    id: 'full-openclaw-state',
+    name: 'OpenClaw state',
+    description: 'OpenClaw local state directory is present.',
+    client: 'openclaw',
+    resourceType: 'client-installation',
+    scope: 'global',
+    path: '~/.openclaw',
+    evidence: [evidence('~/.openclaw/openclaw.json', 'openclaw-state-root', '~/.openclaw')],
+    tags: ['state'],
+    metadata: { stateRoot: '~/.openclaw' }
+  }),
+  resource({
+    id: 'full-openclaw-config',
+    name: 'openclaw.json',
+    description: 'OpenClaw global config with gateway mode hints.',
+    client: 'openclaw',
+    resourceType: 'config-file',
+    scope: 'global',
+    path: '~/.openclaw/openclaw.json',
+    evidence: [evidence('~/.openclaw/openclaw.json', 'openclaw-config', 'openclaw.json')],
+    warnings: [{ kind: 'runtime-caveat', severity: 'warning', message: 'OpenClaw appears configured for gateway/remote mode; local desktop inventory may not own full runtime state.' }],
+    tags: ['config'],
+    metadata: { gatewayOrRemoteMode: true, gatewayHintPath: 'gateway.enabled' }
+  }),
+  resource({
+    id: 'full-openclaw-default-profile',
+    name: 'default',
+    description: 'OpenClaw default profile.',
+    client: 'openclaw',
+    resourceType: 'profile',
+    scope: 'profile',
+    path: '~/.openclaw/profiles/default',
+    evidence: [evidence('~/.openclaw/profiles/default/config.json', 'openclaw-profile', '~/.openclaw/profiles/*')],
+    tags: ['profile'],
+    metadata: { profileName: 'default' }
+  }),
+  resource({
+    id: 'full-openclaw-included-profile-config',
+    name: 'config.json',
+    description: 'OpenClaw profile config included from the global config.',
+    client: 'openclaw',
+    resourceType: 'config-file',
+    scope: 'profile',
+    path: '~/.openclaw/profiles/default/config.json',
+    evidence: [{
+      ...evidence('~/.openclaw/profiles/default/config.json', 'openclaw-included-config', 'profiles/default/config.json'),
+      includedFromPath: '~/.openclaw/openclaw.json'
+    }],
+    tags: ['config'],
+    metadata: { profileName: 'default', includedFromPath: '~/.openclaw/openclaw.json' }
+  }),
+  resource({
+    id: 'full-openclaw-agent',
+    name: 'reviewer',
+    description: 'OpenClaw custom agent.',
+    client: 'openclaw',
+    resourceType: 'custom-agent',
+    scope: 'global',
+    path: '~/.openclaw/agents/reviewer.json',
+    evidence: [evidence('~/.openclaw/agents/reviewer.json', 'openclaw-custom-agent', 'reviewer.json')],
+    tags: ['custom-agent']
+  }),
+  resource({
     id: 'full-openclaw-workspace',
     name: 'uwchlan workspace',
     description: 'OpenClaw workspace state exists for a local project.',
@@ -449,7 +512,86 @@ const fullMachineResources = [
     resourceType: 'workspace',
     scope: 'local-private',
     path: '~/.openclaw/workspaces/uwchlan',
-    evidence: [evidence('~/.openclaw/workspaces/uwchlan', 'openclaw-workspace', '~/.openclaw/workspaces/*')]
+    evidence: [evidence('~/.openclaw/workspaces/uwchlan', 'openclaw-workspace', '~/.openclaw/workspaces/*')],
+    metadata: { workspaceName: 'uwchlan' }
+  }),
+  resource({
+    id: 'full-openclaw-workspace-skill',
+    name: 'reviewer',
+    description: 'OpenClaw workspace-local skill.',
+    client: 'openclaw',
+    resourceType: 'skill',
+    scope: 'local-private',
+    path: '~/.openclaw/workspaces/uwchlan/skills/reviewer/SKILL.md',
+    evidence: [evidence('~/.openclaw/workspaces/uwchlan/skills/reviewer/SKILL.md', 'openclaw-skill', 'SKILL.md')],
+    tags: ['skill'],
+    metadata: { workspaceName: 'uwchlan', precedenceOutcome: 'highest-precedence' }
+  }),
+  resource({
+    id: 'full-openclaw-plugin',
+    name: 'github',
+    description: 'OpenClaw plugin manifest.',
+    client: 'openclaw',
+    resourceType: 'plugin',
+    scope: 'plugin-bundled',
+    path: '~/.openclaw/plugins/github/plugin.json',
+    evidence: [evidence('~/.openclaw/plugins/github/plugin.json', 'openclaw-plugin', 'plugin.json')],
+    tags: ['plugin']
+  }),
+  resource({
+    id: 'full-openclaw-migration',
+    name: 'claude',
+    description: 'OpenClaw imported Claude configuration source.',
+    client: 'openclaw',
+    resourceType: 'migration-import-source',
+    scope: 'global',
+    path: '~/.openclaw/imports/claude/CLAUDE.md',
+    evidence: [evidence('~/.openclaw/imports/claude/CLAUDE.md', 'openclaw-migration-import-source', 'CLAUDE.md')],
+    tags: ['migration']
+  }),
+  resource({
+    id: 'full-openclaw-consumed-mcp',
+    name: 'github',
+    description: 'MCP server consumed by OpenClaw from the global config.',
+    client: 'openclaw',
+    resourceType: 'mcp-server',
+    scope: 'global',
+    status: 'not-tested',
+    statuses: ['found', 'not-tested'],
+    path: '~/.openclaw/openclaw.json',
+    evidence: [evidence('~/.openclaw/openclaw.json', 'openclaw-config', 'openclaw.json', 'mcpServers.github')],
+    tags: ['mcp'],
+    metadata: { mcpRole: 'consumed' }
+  }),
+  resource({
+    id: 'full-openclaw-exposed-mcp',
+    name: 'OpenClaw exposed MCP server',
+    description: 'OpenClaw appears configured to expose an MCP server to other clients.',
+    client: 'openclaw',
+    resourceType: 'mcp-server',
+    scope: 'global',
+    status: 'not-tested',
+    statuses: ['found', 'not-tested'],
+    path: '~/.openclaw/openclaw.json',
+    evidence: [evidence('~/.openclaw/openclaw.json', 'openclaw-config', 'openclaw.json', 'exposes.mcpServer')],
+    warnings: [{ kind: 'runtime-caveat', severity: 'info', message: 'OpenClaw exposed MCP server was not started or connectivity-tested.' }],
+    tags: ['mcp'],
+    metadata: { mcpRole: 'exposed' }
+  }),
+  resource({
+    id: 'full-openclaw-unknown-mcp',
+    name: 'OpenClaw MCP role',
+    description: 'OpenClaw MCP configuration exists, but the consumed/exposed role is ambiguous.',
+    client: 'openclaw',
+    resourceType: 'mcp-server',
+    scope: 'local-private',
+    status: 'needs-review',
+    statuses: ['found', 'not-tested', 'needs-review'],
+    path: '~/.openclaw/workspaces/uwchlan/config.json',
+    evidence: [evidence('~/.openclaw/workspaces/uwchlan/config.json', 'openclaw-config', 'config.json', 'mcp')],
+    warnings: [{ kind: 'runtime-caveat', severity: 'warning', message: 'OpenClaw MCP role cannot be proven from this config and needs review.' }],
+    tags: ['mcp'],
+    metadata: { mcpRole: 'unknown', workspaceName: 'uwchlan' }
   }),
   resource({
     id: 'full-hermes-auth-store',
@@ -465,6 +607,19 @@ const fullMachineResources = [
     metadata: { profileName: 'default' }
   }),
   resource({
+    id: 'full-openclaw-auth-store',
+    name: 'OpenClaw auth store',
+    description: 'OpenClaw auth store is represented as metadata only.',
+    client: 'openclaw',
+    resourceType: 'sensitive-store',
+    scope: 'global',
+    status: 'sensitive',
+    statuses: ['found', 'sensitive'],
+    path: '~/.openclaw/credentials/token.json',
+    evidence: [evidence('~/.openclaw/credentials/token.json', 'openclaw-sensitive-store', 'OpenClaw credentials/tokens')],
+    tags: ['sensitive']
+  }),
+  resource({
     id: 'full-openclaw-sessions',
     name: 'OpenClaw sessions',
     description: 'OpenClaw session store is represented as metadata only.',
@@ -475,6 +630,20 @@ const fullMachineResources = [
     evidence: [evidence('~/.openclaw/sessions', 'openclaw-session-store', '~/.openclaw/sessions')],
     statuses: ['found', 'sensitive'],
     tags: ['sessions']
+  }),
+  resource({
+    id: 'full-openclaw-memory',
+    name: 'OpenClaw workspace memory',
+    description: 'OpenClaw workspace memory store is represented as metadata only.',
+    client: 'openclaw',
+    resourceType: 'log-session-store',
+    scope: 'local-private',
+    status: 'sensitive',
+    statuses: ['found', 'sensitive'],
+    path: '~/.openclaw/workspaces/uwchlan/memory.json',
+    evidence: [evidence('~/.openclaw/workspaces/uwchlan/memory.json', 'openclaw-log-session-memory-store', 'OpenClaw logs/sessions/memory/traces')],
+    tags: ['memory'],
+    metadata: { workspaceName: 'uwchlan' }
   })
 ];
 

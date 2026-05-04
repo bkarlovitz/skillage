@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildClientDetailModel } from './clientSummary';
-import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections, buildCodexDetailSections, buildCursorDetailSections, buildHermesDetailSections } from './clientSpecificDetails';
+import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections, buildCodexDetailSections, buildCursorDetailSections, buildHermesDetailSections, buildOpenClawDetailSections } from './clientSpecificDetails';
 import { detectClaudeCode } from './detectors/claudeCode';
 import { detectCodex } from './detectors/codex';
 import { detectCursor } from './detectors/cursor';
 import { detectHermes } from './detectors/hermes';
+import { detectOpenClaw } from './detectors/openClaw';
 import { getFixtureScenario } from './fixtures';
 import { createEmptyScanSummary } from './scan';
 import type { KnownClientLocation } from './scan';
@@ -340,5 +341,97 @@ mcpServers:
       expect.objectContaining({ label: 'docs', value: 'work · mcpServers.docs' })
     ]));
     expect(skills?.rows.filter((row) => row.label === 'reviewer').map((row) => row.value)).toEqual(['default · skill', 'work · skill']);
+  });
+});
+
+describe('OpenClaw client detail sections', () => {
+  it('shows state, profiles, includes, agents, workspaces, skills, MCP roles, plugins, stores, memory, migration, and gateway caveats', () => {
+    const detected = detectOpenClaw([{
+      path: '/home/user/.openclaw/openclaw.json',
+      content: JSON.stringify({
+        gateway: { enabled: true },
+        includes: ['profiles/default/config.json'],
+        mcpServers: { github: { command: 'npx' } },
+        exposes: { mcpServer: { url: 'http://127.0.0.1:3333/mcp' } }
+      })
+    }, {
+      path: '/home/user/.openclaw/profiles/default/config.json',
+      content: JSON.stringify({ name: 'default' })
+    }, {
+      path: '/home/user/.openclaw/workspaces/repo/config.json',
+      content: JSON.stringify({ mcp: { url: 'http://127.0.0.1:4444/mcp' } })
+    }, {
+      path: '/home/user/.openclaw/agents/reviewer.json',
+      content: '{}'
+    }, {
+      path: '/home/user/.openclaw/workspaces/repo/skills/reviewer/SKILL.md',
+      content: '# Reviewer'
+    }, {
+      path: '/home/user/.openclaw/extensions/vscode/plugin.json',
+      content: '{}'
+    }, {
+      path: '/home/user/.openclaw/imports/claude/CLAUDE.md',
+      content: '# Imported'
+    }, {
+      path: '/home/user/.openclaw/credentials/token.json',
+      content: '{"token":"raw"}',
+      sizeBytes: 15
+    }, {
+      path: '/home/user/.openclaw/sessions/latest.json',
+      content: '{"messages":["raw"]}',
+      sizeBytes: 20
+    }, {
+      path: '/home/user/.openclaw/workspaces/repo/memory.json',
+      content: '{"memory":"raw"}',
+      sizeBytes: 16
+    }]);
+    const detail = buildClientDetailModel(createEmptyScanSummary({
+      resources: detected.resources,
+      skippedSensitiveStores: detected.skippedSensitiveStores,
+      warnings: detected.warnings
+    }), 'openclaw');
+
+    const sections = buildOpenClawDetailSections(detail);
+    const ids = sections.map((section) => section.id);
+    const mcp = sections.find((section) => section.id === 'openclaw-mcp');
+    const includes = sections.find((section) => section.id === 'openclaw-includes');
+    const gateway = sections.find((section) => section.id === 'openclaw-gateway-caveats');
+
+    expect(ids).toEqual(expect.arrayContaining([
+      'openclaw-state',
+      'openclaw-profiles',
+      'openclaw-includes',
+      'openclaw-agents',
+      'openclaw-workspaces',
+      'openclaw-skills',
+      'openclaw-mcp',
+      'openclaw-plugins',
+      'openclaw-sensitive-stores',
+      'openclaw-logs-sessions-memory',
+      'openclaw-migrations',
+      'openclaw-gateway-caveats'
+    ]));
+    expect(mcp?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'github', value: expect.stringContaining('consumed') }),
+      expect.objectContaining({ label: 'OpenClaw exposed MCP server', value: expect.stringContaining('exposed') }),
+      expect.objectContaining({ label: 'OpenClaw MCP role', value: expect.stringContaining('unknown') })
+    ]));
+    expect(mcp?.rows.find((row) => row.label === 'OpenClaw MCP role')?.value).toContain('needs-review');
+    expect(includes?.rows[0]).toMatchObject({
+      path: '/home/user/.openclaw/profiles/default/config.json',
+      value: 'included from /home/user/.openclaw/openclaw.json'
+    });
+    expect(gateway?.rows[0].value).toContain('gateway/remote mode');
+  });
+
+  it('fixture data answers whether OpenClaw MCP items are consumed, exposed, or need review', () => {
+    const sections = buildOpenClawDetailSections(buildClientDetailModel(getFixtureScenario('full-machine').summary, 'openclaw'));
+    const mcp = sections.find((section) => section.id === 'openclaw-mcp');
+
+    expect(mcp?.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'github', value: 'consumed · not-tested · mcpServers.github' }),
+      expect.objectContaining({ label: 'OpenClaw exposed MCP server', value: 'exposed · not-tested · exposes.mcpServer' }),
+      expect.objectContaining({ label: 'OpenClaw MCP role', value: 'unknown · needs-review · mcp' })
+    ]));
   });
 });
