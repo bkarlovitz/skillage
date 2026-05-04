@@ -39,7 +39,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Represent Codex layers without claiming trust-gated project resources are active when trust is unknown.
   - Validation: Detector tests cover user config, `/etc/codex`, project AGENTS, `.agents` skill locations, managed/admin config, and trust-gated caveats.
 
-- [ ] **Task 3.8**: Implement Cursor detector for global and project resources
+- [x] **Task 3.8**: Implement Cursor detector for global and project resources
   - Detect Cursor global MCP config, project MCP config, project `.cursor/rules/*.mdc`, legacy `.cursorrules`, and schema mismatch warnings.
   - Clearly distinguish global MCP servers from project MCP servers.
   - Validation: Detector tests cover global MCP, project MCP, valid MDC rules, malformed MDC frontmatter, and legacy `.cursorrules`.
