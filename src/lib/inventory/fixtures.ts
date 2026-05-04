@@ -177,6 +177,32 @@ const fullMachineResources = [
     tags: ['rule']
   }),
   resource({
+    id: 'full-cursor-global-mcp',
+    name: 'globalDocs',
+    description: 'Cursor global MCP server definition.',
+    client: 'cursor',
+    resourceType: 'mcp-server',
+    scope: 'global',
+    status: 'not-tested',
+    statuses: ['found', 'not-tested'],
+    path: '~/.cursor/mcp.json',
+    evidence: [evidence('~/.cursor/mcp.json', 'cursor-global-mcp', 'Cursor global mcp.json', 'mcpServers.globalDocs')],
+    tags: ['mcp']
+  }),
+  resource({
+    id: 'full-cursor-project-mcp',
+    name: 'projectDocs',
+    description: 'Cursor project MCP server definition.',
+    client: 'cursor',
+    resourceType: 'mcp-server',
+    scope: 'project-shared',
+    status: 'not-tested',
+    statuses: ['found', 'not-tested'],
+    path: '/repo/.cursor/mcp.json',
+    evidence: [evidence('/repo/.cursor/mcp.json', 'cursor-project-mcp', '.cursor/mcp.json', 'mcpServers.projectDocs')],
+    tags: ['mcp']
+  }),
+  resource({
     id: 'full-hermes-default-profile',
     name: 'default',
     description: 'Hermes default profile environment.',

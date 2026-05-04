@@ -128,8 +128,26 @@ export function buildClaudeDesktopDetailSections(detail: ClientDetailViewModel):
   ].filter((item) => item.rows.length > 0);
 }
 
+export function buildCursorDetailSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
+  const globalMcp = detail.resources.filter((resource) => resource.resourceType === 'mcp-server' && resource.scope === 'global');
+  const projectMcp = detail.resources.filter((resource) => resource.resourceType === 'mcp-server' && resource.scope === 'project-shared');
+  const projectRules = detail.resources.filter((resource) => resource.resourceType === 'rule' && resource.path?.includes('/.cursor/rules/'));
+  const legacyRules = detail.resources.filter((resource) => resource.resourceType === 'rule' && (resource.name === '.cursorrules' || resource.path?.endsWith('.cursorrules')));
+  const parseWarnings = detail.resources.filter((resource) => resource.status === 'parse-error'
+    || resource.warnings.some((warning) => warning.kind === 'parse-read-problem' || warning.message.toLowerCase().includes('schema')));
+
+  return [
+    section('cursor-global-mcp', 'Global MCP', 'Cursor user-level MCP servers and config.', globalMcp, (resource) => sourcePath(resource)),
+    section('cursor-project-mcp', 'Project MCP', 'Cursor project MCP servers scoped to the selected workspace.', projectMcp, (resource) => sourcePath(resource)),
+    section('cursor-project-rules', 'Project Rules', 'Cursor MDC project rules.', projectRules, (resource) => resource.status),
+    section('cursor-legacy-rules', 'Legacy Rule Warnings', 'Legacy .cursorrules files are shown separately from MDC rules.', legacyRules, (resource) => firstCaveat(resource) || resource.status),
+    section('cursor-parse-schema-warnings', 'Schema/Parse Warnings', 'Malformed Cursor config or rule schema mismatch warnings.', parseWarnings, (resource) => firstCaveat(resource) || resource.status)
+  ].filter((item) => item.rows.length > 0);
+}
+
 export function buildClientSpecificSections(detail: ClientDetailViewModel): ClientSpecificDetailSection[] {
   if (detail.client === 'claude-code') return buildClaudeCodeDetailSections(detail);
   if (detail.client === 'claude-desktop') return buildClaudeDesktopDetailSections(detail);
+  if (detail.client === 'cursor') return buildCursorDetailSections(detail);
   return [];
 }

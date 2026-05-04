@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildClientDetailModel } from './clientSummary';
-import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections } from './clientSpecificDetails';
+import { buildClaudeCodeDetailSections, buildClaudeDesktopDetailSections, buildCursorDetailSections } from './clientSpecificDetails';
 import { detectClaudeCode } from './detectors/claudeCode';
+import { detectCursor } from './detectors/cursor';
 import { getFixtureScenario } from './fixtures';
 import { createEmptyScanSummary } from './scan';
 import type { KnownClientLocation } from './scan';
@@ -109,5 +110,52 @@ describe('Claude Desktop client detail sections', () => {
       path: '~/Library/Application Support/Claude/claude_desktop_config.json'
     });
     expect(sections.some((section) => section.id === 'claude-desktop-restart')).toBe(false);
+  });
+});
+
+describe('Cursor client detail sections', () => {
+  it('distinguishes global MCP, project MCP, project rules, legacy warnings, and parse mismatch warnings', () => {
+    const detected = detectCursor([{
+      path: '/home/user/.cursor/mcp.json',
+      content: JSON.stringify({ mcpServers: { globalDocs: { command: 'node' } } })
+    }, {
+      path: '/repo/.cursor/mcp.json',
+      content: JSON.stringify({ mcpServers: { projectDocs: { command: 'node' } } })
+    }, {
+      path: '/repo/.cursor/rules/svelte.mdc',
+      content: '---\ndescription: Svelte\n---\n# Rule'
+    }, {
+      path: '/repo/.cursorrules',
+      content: 'Use project conventions.'
+    }, {
+      path: '/broken/.cursor/mcp.json',
+      content: '{not json'
+    }]);
+    const detail = buildClientDetailModel(createEmptyScanSummary({
+      resources: detected.resources,
+      parseErrors: detected.parseErrors
+    }), 'cursor');
+    const sections = buildCursorDetailSections(detail);
+
+    expect(sections.find((section) => section.id === 'cursor-global-mcp')?.rows[0]).toMatchObject({
+      label: 'globalDocs',
+      path: '/home/user/.cursor/mcp.json'
+    });
+    expect(sections.find((section) => section.id === 'cursor-project-mcp')?.rows[0]).toMatchObject({
+      label: 'projectDocs',
+      path: '/repo/.cursor/mcp.json'
+    });
+    expect(sections.find((section) => section.id === 'cursor-project-rules')?.rows[0].label).toBe('Svelte');
+    expect(sections.find((section) => section.id === 'cursor-legacy-rules')?.rows[0].value).toContain('Legacy .cursorrules');
+    expect(sections.find((section) => section.id === 'cursor-parse-schema-warnings')?.rows[0].label).toBe('Cursor project MCP config');
+  });
+
+  it('fixture data distinguishes Cursor global MCP from project MCP and exposes malformed config warnings', () => {
+    const full = buildCursorDetailSections(buildClientDetailModel(getFixtureScenario('full-machine').summary, 'cursor'));
+    const partial = buildCursorDetailSections(buildClientDetailModel(getFixtureScenario('parse-read-error').summary, 'cursor'));
+
+    expect(full.find((section) => section.id === 'cursor-global-mcp')?.rows[0].path).toBe('~/.cursor/mcp.json');
+    expect(full.find((section) => section.id === 'cursor-project-mcp')?.rows[0].path).toBe('/repo/.cursor/mcp.json');
+    expect(partial.find((section) => section.id === 'cursor-parse-schema-warnings')?.rows[0].value).toContain('Unexpected token');
   });
 });

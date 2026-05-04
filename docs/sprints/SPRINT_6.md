@@ -21,7 +21,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Show exact config path, global desktop MCP resources, logs presence, restart-required caveat, and not-found/wrong-path states.
   - Validation: Fixture demo answers the exact Claude Desktop config path and displays restart caveat without any restart action.
 
-- [ ] **Task 6.5**: Implement Cursor detail view
+- [x] **Task 6.5**: Implement Cursor detail view
   - Show global MCP, project MCP, project rules, legacy rule warnings, and schema/parse mismatch warnings.
   - Validation: Fixture demo distinguishes Cursor global MCP from project MCP and shows a malformed config warning.
 
