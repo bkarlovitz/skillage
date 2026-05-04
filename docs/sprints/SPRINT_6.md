@@ -47,7 +47,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Ensure each client detail page can render not-found, partially configured, configured, and parse-error scenarios.
   - Validation: Fixture tests cover every client state and `npm run check` passes.
 
-- [ ] **Task 6.11**: Replace generic resource-detail body previews with safe detail panels
+- [x] **Task 6.11**: Replace generic resource-detail body previews with safe detail panels
   - Show safe markdown previews only for instruction/skill/rule resources.
   - Show redacted metadata-only panels for configs, auth stores, logs, sessions, memory, and sensitive stores.
   - Validation: UI tests prove sensitive resources never show raw body previews.

@@ -6,6 +6,7 @@
   import { buildClientDetailModels, summarizeCoreClients } from './lib/inventory/clientSummary';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import { projectInventoryStates } from './lib/inventory/project/states';
+  import { buildSafeResourceDetailPanels } from './lib/inventory/safeDetailPanels';
   import type { ScanSummary } from './lib/inventory/scan';
   import { filterCapabilityResources } from './lib/inventory/tableModel';
   import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
@@ -49,6 +50,7 @@
   const pageResult = $derived(paginate(sorted, { page, pageSize }));
   const visibleRows = $derived(pageResult.rows);
   const selected = $derived(findCapabilityResourceById(items, selectedId));
+  const selectedSafeDetailPanels = $derived(selected ? buildSafeResourceDetailPanels(selected) : []);
   const issueCount = $derived(items.reduce((total, item) => total + item.warnings.length, 0));
   const scanIssueCount = $derived(activeScanSummary.readErrors.length + activeScanSummary.parseErrors.length + activeScanSummary.skippedSensitiveStores.length + activeScanSummary.warnings.length);
   const sourceModeLabel = $derived(activeScanSummary.dataSource === 'fixture' ? 'Fixture/demo' : 'Local scan');
@@ -1019,8 +1021,29 @@
             </section>
 
             <section class="detail-section">
-              <h3>Source evidence</h3>
-              <pre>{selected.evidence.map((evidence) => `${evidence.sourcePath ?? evidence.sourceLabel ?? 'unknown source'}\nrule: ${evidence.scannerRule ?? 'unknown'}\nread: ${evidence.readStatus}\nparse: ${evidence.parseStatus}`).join('\n\n')}</pre>
+              <h3>Safe Detail Panels</h3>
+              <div class="client-specific-grid">
+                {#each selectedSafeDetailPanels as panel}
+                  <article class="client-specific-section">
+                    <div class="project-section-header">
+                      <h3>{panel.title}</h3>
+                      <span>{panel.policy}</span>
+                    </div>
+                    <p>{panel.description}</p>
+                    {#if panel.previewText}
+                      <pre>{panel.previewText}</pre>
+                    {:else}
+                      <div class="metadata-list">
+                        {#each panel.rows as row}
+                          <div class="metadata-row">
+                            <span><strong>{row.label}</strong><small>{row.value}</small></span>
+                          </div>
+                        {/each}
+                      </div>
+                    {/if}
+                  </article>
+                {/each}
+              </div>
             </section>
           </article>
         {:else}
