@@ -24,7 +24,7 @@ Demo Machine Inventory for Claude Code, Claude Desktop, Codex, and Cursor, inclu
   - Never execute MCP commands during extraction.
   - Validation: Tests assert extraction returns `not-tested` or `found` and never attempts process execution.
 
-- [ ] **Task 3.5**: Implement Claude Desktop detector
+- [x] **Task 3.5**: Implement Claude Desktop detector
   - Detect Claude Desktop MCP config and log/session presence as global desktop-level resources.
   - Make exact config path prominent and add restart-required caveat.
   - Validation: Fixture tests cover found config, wrong/missing path, malformed MCP config, logs presence, and no project scope.
