@@ -1,3 +1,4 @@
+import { redactSensitiveText as redactTextWithWarnings } from './redaction';
 import type { CapabilityResourceType, ContentPreviewPolicy } from './types';
 
 export interface PreviewPolicyInput {
@@ -12,10 +13,6 @@ export interface ContentPreview {
   text?: string;
   reason?: string;
 }
-
-const secretLikePattern = /\b(?:api[_-]?key|token|secret|password|bearer)\b\s*[:=]\s*["']?([A-Za-z0-9._~+/=-]{8,})["']?/gi;
-const envAssignmentPattern = /^([A-Z][A-Z0-9_]*(?:TOKEN|SECRET|KEY|PASSWORD)[A-Z0-9_]*)=(.+)$/gim;
-const bearerPattern = /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi;
 
 function normalizedInput(input: PreviewPolicyInput): string {
   return `${input.resourceType} ${input.path ?? ''} ${input.name ?? ''}`.toLowerCase();
@@ -51,10 +48,7 @@ export function canShowRawContent(policy: ContentPreviewPolicy): boolean {
 }
 
 export function redactSensitiveText(text: string): string {
-  return text
-    .replace(secretLikePattern, (match) => match.replace(/([:=]\s*["']?)([A-Za-z0-9._~+/=-]{8,})(["']?)$/i, '$1[REDACTED]$3'))
-    .replace(envAssignmentPattern, '$1=[REDACTED]')
-    .replace(bearerPattern, 'Bearer [REDACTED]');
+  return redactTextWithWarnings(text).text;
 }
 
 export function createContentPreview(policy: ContentPreviewPolicy, content: string, reason?: string): ContentPreview {

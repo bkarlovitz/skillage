@@ -14,7 +14,7 @@ Demo a local scan that returns structured inventory metadata, source evidence, r
   - Apply metadata-only behavior to logs, sessions, auth stores, token files, environment files, credential files, memory stores, and cache traces.
   - Validation: Unit tests prove sensitive/log/session paths do not produce raw preview content.
 
-- [ ] **Task 2.3**: Add redaction primitives used by scanner and UI
+- [x] **Task 2.3**: Add redaction primitives used by scanner and UI
   - Implement redaction for API-key-like strings, bearer tokens, OAuth-looking tokens, password fields, env file assignments, and file-secret references.
   - Return warnings for inline secret-like values without exposing raw values.
   - Validation: `npm run test -- src/lib/inventory/redaction.test.ts` passes with positive and negative fixtures.
