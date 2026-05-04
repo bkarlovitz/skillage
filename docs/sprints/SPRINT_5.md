@@ -34,7 +34,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Apply the same redaction and metadata-only behavior for sensitive config/log/session files.
   - Validation: Project scanner tests cover project MCP, hook, instruction, secret-like config, and log/session presence.
 
-- [ ] **Task 5.7**: Join inherited global/profile resources into project context
+- [x] **Task 5.7**: Join inherited global/profile resources into project context
   - Show global/profile resources that may affect the selected project while clearly labeling them as inherited.
   - Include caveats where inheritance depends on profile, trust, current working directory, runtime state, or client behavior.
   - Validation: Inheritance tests cover inherited global MCP, profile-scoped Hermes resources, Codex trust-gated project layers, and unknown activation.
