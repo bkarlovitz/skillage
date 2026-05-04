@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { canShowRawContent, createContentPreview, defaultPreviewPolicy, redactSensitiveText } from './preview';
+import { canShowRawContent, createContentPreview, defaultPreviewPolicy, redactSensitiveText, safeDisplayPreviewText } from './preview';
+import type { CapabilityResource, CapabilityResourceType, ContentPreviewPolicy } from './types';
 import { contentPreviewPolicies } from './types';
+
+function resource(input: {
+  resourceType: CapabilityResourceType;
+  path: string;
+  previewPolicy: ContentPreviewPolicy;
+  previewText?: string;
+  rawPreviewAllowed?: boolean;
+}): CapabilityResource {
+  return {
+    id: `preview-${input.resourceType}`,
+    name: input.path.split('/').pop() ?? input.resourceType,
+    description: 'Preview policy test resource.',
+    client: 'codex',
+    resourceType: input.resourceType,
+    scope: 'global',
+    status: 'found',
+    path: input.path,
+    previewPolicy: input.previewPolicy,
+    contentPreview: {
+      policy: input.previewPolicy,
+      rawPreviewAllowed: input.rawPreviewAllowed ?? false,
+      text: input.previewText
+    },
+    evidence: [{
+      sourcePath: input.path,
+      scannerRule: 'preview-test',
+      matchedPathPattern: input.path,
+      readStatus: 'read',
+      parseStatus: 'parsed'
+    }],
+    warnings: [],
+    relationships: [],
+    tags: [],
+    metadata: {}
+  };
+}
 
 describe('content preview policies', () => {
   it('defines the v1 preview policy vocabulary', () => {
@@ -67,5 +104,42 @@ describe('content preview policies', () => {
     expect(redacted).not.toContain('abcdefghijklmnopqrstuvwxyz');
     expect(preview.text).toBe(redacted);
     expect(preview.rawPreviewAllowed).toBe(false);
+  });
+
+  it('keeps normal inventory previews limited to redacted safe markdown resources', () => {
+    const unsafeRows = [
+      resource({
+        resourceType: 'sensitive-store',
+        path: '~/.openclaw/credentials/token.json',
+        previewPolicy: 'unread-sensitive',
+        previewText: 'raw-token-secret-value',
+        rawPreviewAllowed: true
+      }),
+      resource({
+        resourceType: 'log-session-store',
+        path: '~/.openclaw/workspaces/repo/memory.json',
+        previewPolicy: 'metadata-only',
+        previewText: 'raw memory body with bearer token',
+        rawPreviewAllowed: true
+      }),
+      resource({
+        resourceType: 'config-file',
+        path: '~/.codex/config.toml',
+        previewPolicy: 'redacted-preview',
+        previewText: 'model = "gpt-test"',
+        rawPreviewAllowed: false
+      })
+    ];
+    const markdown = resource({
+      resourceType: 'instruction-file',
+      path: '/repo/AGENTS.md',
+      previewPolicy: 'safe-markdown-preview',
+      previewText: '# Instructions\nAPI_TOKEN=raw-secret-value-12345',
+      rawPreviewAllowed: true
+    });
+
+    expect(unsafeRows.map(safeDisplayPreviewText)).toEqual(['', '', '']);
+    expect(safeDisplayPreviewText(markdown)).toContain('[REDACTED]');
+    expect(safeDisplayPreviewText(markdown)).not.toContain('raw-secret-value-12345');
   });
 });

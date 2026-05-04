@@ -9,6 +9,7 @@
   import { insightCategories } from './lib/inventory/insights';
   import { buildProjectEffectiveResources, buildProjectInventoryResources } from './lib/inventory/project/effective';
   import { projectInventoryStates } from './lib/inventory/project/states';
+  import { safeDisplayPreviewText } from './lib/inventory/preview';
   import { relationshipLabels } from './lib/inventory/relationships';
   import { buildSafeResourceDetailPanels } from './lib/inventory/safeDetailPanels';
   import type { ScanSummary } from './lib/inventory/scan';
@@ -153,8 +154,8 @@
   }
 
   function previewSnippet(item: CapabilityResource): string {
-    const text = item.contentPreview?.text;
-    if (!text || item.contentPreview?.policy === 'unread-sensitive') return '';
+    const text = safeDisplayPreviewText(item);
+    if (!text) return '';
     const compact = text.replace(/\s+/g, ' ').trim();
     return compact.length > 140 ? `${compact.slice(0, 137)}...` : compact;
   }

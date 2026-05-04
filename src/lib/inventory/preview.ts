@@ -1,5 +1,5 @@
 import { redactSensitiveText as redactTextWithWarnings } from './redaction';
-import type { CapabilityResourceType, ContentPreviewPolicy } from './types';
+import type { CapabilityResource, CapabilityResourceType, ContentPreviewPolicy } from './types';
 
 export interface PreviewPolicyInput {
   resourceType: CapabilityResourceType;
@@ -49,6 +49,27 @@ export function canShowRawContent(policy: ContentPreviewPolicy): boolean {
 
 export function redactSensitiveText(text: string): string {
   return redactTextWithWarnings(text).text;
+}
+
+function previewPolicyForResource(resource: CapabilityResource): ContentPreviewPolicy {
+  return resource.contentPreview?.policy
+    ?? resource.previewPolicy
+    ?? defaultPreviewPolicy({ resourceType: resource.resourceType, path: resource.path, name: resource.name });
+}
+
+function isSafeMarkdownPreviewResource(resource: CapabilityResource): boolean {
+  return resource.resourceType === 'instruction-file'
+    || resource.resourceType === 'skill'
+    || resource.resourceType === 'rule';
+}
+
+export function safeDisplayPreviewText(resource: CapabilityResource): string {
+  const text = resource.contentPreview?.text;
+  if (!text) return '';
+  if (!isSafeMarkdownPreviewResource(resource)) return '';
+  if (previewPolicyForResource(resource) !== 'safe-markdown-preview') return '';
+  if (resource.contentPreview?.rawPreviewAllowed !== true) return '';
+  return redactSensitiveText(text);
 }
 
 export function createContentPreview(policy: ContentPreviewPolicy, content: string, reason?: string): ContentPreview {

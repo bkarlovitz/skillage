@@ -54,6 +54,19 @@ describe('safe resource detail panels', () => {
     expect(panels[0].previewText).toBe('# Project instructions');
   });
 
+  it('redacts secret-like values even inside safe markdown previews', () => {
+    const panels = buildSafeResourceDetailPanels(resource({
+      resourceType: 'instruction-file',
+      path: '/repo/AGENTS.md',
+      previewPolicy: 'safe-markdown-preview',
+      previewText: '# Project instructions\nAPI_TOKEN=raw-secret-value-12345',
+      rawPreviewAllowed: true
+    }));
+
+    expect(panels[0].previewText).toContain('[REDACTED]');
+    expect(panels[0].previewText).not.toContain('raw-secret-value-12345');
+  });
+
   it('keeps configs metadata-only even when redacted preview text exists', () => {
     const panels = buildSafeResourceDetailPanels(resource({
       resourceType: 'config-file',

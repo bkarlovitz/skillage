@@ -1,4 +1,4 @@
-import { defaultPreviewPolicy } from './preview';
+import { defaultPreviewPolicy, safeDisplayPreviewText } from './preview';
 import type { CapabilityEvidence, CapabilityResource, ContentPreviewPolicy } from './types';
 
 export interface SafeDetailPanelRow {
@@ -57,7 +57,7 @@ function safePreviewText(resource: CapabilityResource, policy: ContentPreviewPol
   if (!isMarkdownPreviewResource(resource)) return undefined;
   if (policy !== 'safe-markdown-preview') return undefined;
   if (resource.contentPreview?.rawPreviewAllowed !== true) return undefined;
-  return resource.contentPreview.text;
+  return safeDisplayPreviewText(resource) || undefined;
 }
 
 function previewDescription(resource: CapabilityResource, policy: ContentPreviewPolicy): string {
