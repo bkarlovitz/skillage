@@ -5,6 +5,7 @@
   import { buildClientSpecificSections } from './lib/inventory/clientSpecificDetails';
   import { buildClientDetailModels, summarizeCoreClients } from './lib/inventory/clientSummary';
   import { buildCrossClientViewModel, filterCrossClientGroups } from './lib/inventory/crossClientViewModel';
+  import { machineInventoryEmptyState } from './lib/inventory/emptyStates';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import { insightCategories } from './lib/inventory/insights';
   import { buildProjectEffectiveResources, buildProjectInventoryResources } from './lib/inventory/project/effective';
@@ -66,6 +67,7 @@
   const issueCount = $derived(items.reduce((total, item) => total + item.warnings.length, 0));
   const scanIssueCount = $derived(activeScanSummary.readErrors.length + activeScanSummary.parseErrors.length + activeScanSummary.skippedSensitiveStores.length + activeScanSummary.warnings.length);
   const sourceModeLabel = $derived(activeScanSummary.dataSource === 'fixture' ? 'Fixture/demo' : 'Local scan');
+  const machineEmptyState = $derived(machineInventoryEmptyState(activeScanSummary));
   const targetCounts = $derived(items.reduce<Record<string, number>>((counts, item) => {
     counts[item.client] = (counts[item.client] ?? 0) + 1;
     return counts;
@@ -463,10 +465,10 @@
         </article>
       </section>
 
-      {#if activeScanSummary.dataSource === 'local-scan' && items.length === 0}
+      {#if machineEmptyState && items.length === 0}
         <section class="empty local-empty-state">
-          <strong>No local capability resources found.</strong>
-          <span>The scan stayed empty. Use the fixture selector for demo data or scan another root.</span>
+          <strong>{machineEmptyState.title}</strong>
+          <span>{machineEmptyState.detail}</span>
         </section>
       {/if}
 

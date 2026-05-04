@@ -21,7 +21,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Cover inline API keys, bearer tokens, OAuth-looking tokens, password fields, `.env` assignments, env var references, file-secret references, and auth-store presence.
   - Validation: Redaction regression tests pass and snapshots contain redaction markers instead of raw values.
 
-- [ ] **Task 8.5**: Add empty-scan regression coverage
+- [x] **Task 8.5**: Add empty-scan regression coverage
   - Ensure a real empty machine scan and a real empty project scan remain empty and never load fixtures automatically.
   - Validation: Tests assert empty scan summaries render empty states with no demo resources.
 
