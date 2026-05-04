@@ -100,6 +100,22 @@ Relationships explain why a resource appears and how it compares to other resour
 | `provided-by-plugin` | Resource is provided by a plugin or bundled package. |
 | `imports-from` | Resource came from a migration/import source. |
 
+### Relationship Evidence Thresholds
+
+Cross-client relationship labels must be source-backed and conservative.
+
+| Label | Minimum evidence |
+| --- | --- |
+| `identical` | Same resource type and normalized name, plus shared source path or explicit identity key. Shared name alone is never enough. |
+| `similar` | Same resource type with similar description or matching launch evidence under different names. |
+| `same-name-only` | Same resource type and normalized name, but no stronger evidence. |
+| `shadowed` | Explicit precedence evidence such as `shadowed-by`, `shadowed` status, or detector-provided shadow metadata. |
+| `overridden` | Explicit `overrides` relationship or `overridden` status. |
+| `conflict` | Same client, scope, type, and name with incompatible launch evidence. Shared name alone is never enough. |
+| `duplicate` | Same type and name with matching command/package/url launch evidence across separate resources, or an explicit duplicate relationship. |
+| `needs-review` | Same-name resources where precedence, activation, or relationship confidence is uncertain. |
+| `no-relationship-inferred` | No conservative threshold was met. |
+
 ## Source Evidence
 
 Every discovered resource should carry evidence when available.
