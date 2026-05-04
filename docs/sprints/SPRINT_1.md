@@ -30,7 +30,7 @@ Demo a runnable app shell that uses the v1 capability inventory language, explic
   - Add a visible UI state that labels fixture/demo data separately from local scan data.
   - Validation: `npm run test -- src/lib/inventory/fixtures.test.ts` passes and a browser dev run can switch fixture scenarios without invoking local scanning.
 
-- [ ] **Task 1.6**: Replace old app navigation with v1 surfaces
+- [x] **Task 1.6**: Replace old app navigation with v1 surfaces
   - Replace the current Inventory/Create/Product Notes nav with Machine Inventory, Project Inventory, Clients, and Cross-Client views.
   - Remove create/edit/draft affordances from the app shell because they are not part of this phase.
   - Validation: `npm run check` passes and the app renders all four top-level views from fixture data.

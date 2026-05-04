@@ -3,6 +3,7 @@
   import { findSkillById } from './lib/detail';
   import { fixtureScenarios, getFixtureScenario, skillItemsFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
   import { createEmptyScanSummary, type ScanSummary } from './lib/inventory/scan';
+  import { capabilityClients } from './lib/inventory/types';
   import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
   import { paginate, sortSkillItems, type SortDirection, type SortKey } from './lib/table';
   import { applyTheme, getStoredTheme, resolveTheme, storeTheme, systemPrefersDark, type ThemePreference } from './lib/theme';
@@ -11,6 +12,7 @@
   const targets: Array<'all' | SkillTarget> = ['all', 'claude-code', 'claude-desktop', 'codex', 'hermes', 'openclaw', 'cursor', 'generic'];
   const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
   const pageSizeOptions = [25, 50, 100];
+  type AppMode = 'machine' | 'project' | 'clients' | 'cross-client' | 'detail';
   const defaultFixtureScenarioId: InventoryFixtureScenarioId = 'full-machine';
   const defaultFixtureScenario = getFixtureScenario(defaultFixtureScenarioId);
   const defaultFixtureItems = skillItemsFromFixtureScenario(defaultFixtureScenarioId);
@@ -22,7 +24,7 @@
   let dataSourceLabel = $state(`Fixture: ${defaultFixtureScenario.label}`);
   let query = $state('');
   let target = $state<'all' | SkillTarget>('all');
-  let mode = $state<'inventory' | 'detail' | 'create' | 'research'>('inventory');
+  let mode = $state<AppMode>('machine');
   let scanRootPath = $state('');
   let scanStatus = $state('');
   let advancedScanOpen = $state(false);
@@ -53,6 +55,42 @@
     counts[item.target] = (counts[item.target] ?? 0) + 1;
     return counts;
   }, {}));
+  const projectRows = $derived(items.filter((item) => {
+    const statuses = Array.isArray(item.metadata.statuses) ? item.metadata.statuses.map(String) : [String(item.metadata.status ?? '')];
+    return item.scope === 'project-shared'
+      || item.scope === 'local-private'
+      || statuses.includes('inherited')
+      || statuses.includes('likely-active')
+      || statuses.includes('needs-review');
+  }));
+  const clientSummaries = $derived(capabilityClients.map((client) => {
+    const resources = items.filter((item) => item.target === client);
+    const locations = activeScanSummary.knownClientLocations.filter((location) => location.client === client);
+    return {
+      client,
+      resources,
+      locations,
+      found: resources.some((item) => item.metadata.status !== 'not-found') || locations.some((location) => location.exists)
+    };
+  }));
+  const crossClientGroups = $derived(Object.values(items.reduce<Record<string, { key: string; name: string; kind: string; rows: SkillItem[]; clients: string[]; scopes: string[]; warnings: number }>>((groups, item) => {
+    const key = `${item.name.toLowerCase()}::${item.kind}`;
+    const group = groups[key] ?? {
+      key,
+      name: item.name,
+      kind: item.kind,
+      rows: [],
+      clients: [],
+      scopes: [],
+      warnings: 0
+    };
+    group.rows.push(item);
+    group.clients = Array.from(new Set([...group.clients, item.target]));
+    group.scopes = Array.from(new Set([...group.scopes, item.scope]));
+    group.warnings += item.issues.length;
+    groups[key] = group;
+    return groups;
+  }, {})).sort((a, b) => b.clients.length - a.clients.length || a.name.localeCompare(b.name)));
 
   function selectItem(id: string) {
     selectedId = id;
@@ -60,7 +98,7 @@
   }
 
   function backToInventory() {
-    mode = 'inventory';
+    mode = 'machine';
   }
 
   function resetPageAndSelection(rows: SkillItem[] = sorted) {
@@ -195,29 +233,6 @@
     }
   }
 
-  function createSampleSkill() {
-    const next: SkillItem = {
-      id: `draft:${crypto.randomUUID()}`,
-      name: 'new-skill',
-      description: 'Describe when an agent should use this skill.',
-      target: 'claude-code',
-      kind: 'skill',
-      scope: 'sample',
-      origin: 'sample',
-      category: undefined,
-      path: '~/.claude/skills/new-skill/SKILL.md',
-      entryFile: 'SKILL.md',
-      body: '# New Skill\n\nWrite crisp operational instructions here. Add scripts/references only when needed.',
-      tags: ['draft'],
-      metadata: { name: 'new-skill', description: 'Describe when an agent should use this skill.' },
-      issues: [{ severity: 'info', message: 'Draft only. Native write support is planned for the Tauri backend with backup + diff preview.' }]
-    };
-    items = [next, ...items];
-    selectedId = next.id;
-    page = 1;
-    mode = 'inventory';
-  }
-
   onMount(() => {
     themePreference = getStoredTheme(window.localStorage);
     applyTheme(document.documentElement, resolveTheme(themePreference, systemPrefersDark()));
@@ -250,9 +265,10 @@
     </div>
 
     <nav class="tabs" aria-label="Primary">
-      <button class:active={mode === 'inventory' || mode === 'detail'} onclick={backToInventory}>Inventory</button>
-      <button class:active={mode === 'create'} onclick={() => (mode = 'create')}>Create</button>
-      <button class:active={mode === 'research'} onclick={() => (mode = 'research')}>Product notes</button>
+      <button class:active={mode === 'machine' || mode === 'detail'} onclick={() => (mode = 'machine')}>Machine Inventory</button>
+      <button class:active={mode === 'project'} onclick={() => (mode = 'project')}>Project Inventory</button>
+      <button class:active={mode === 'clients'} onclick={() => (mode = 'clients')}>Clients</button>
+      <button class:active={mode === 'cross-client'} onclick={() => (mode = 'cross-client')}>Cross-Client</button>
     </nav>
 
     <section class="sidebar-section" aria-labelledby="sources-heading">
@@ -293,12 +309,12 @@
   </aside>
 
   <main class="main">
-    {#if mode === 'inventory'}
+    {#if mode === 'machine'}
       <section class="topbar">
         <div>
-          <p class="eyebrow">Inventory</p>
-          <h2>Detected skills and rules</h2>
-          <p>Normalized across Claude Code, Codex, Hermes, OpenClaw, Cursor rules, and generic agent files.</p>
+          <p class="eyebrow">Machine Inventory</p>
+          <h2>Local capability inventory</h2>
+          <p>Normalized across Claude Code, Claude Desktop, Codex, Cursor, Hermes, and OpenClaw.</p>
         </div>
         <div class="topbar-actions">
           <label class="field demo-scenario-field">
@@ -311,7 +327,6 @@
           </label>
           <button class="button secondary" onclick={() => (advancedScanOpen = !advancedScanOpen)}>{advancedScanOpen ? 'Hide scan root' : 'Advanced scan'}</button>
           <button class="button secondary" onclick={scanStandard}>Scan standard locations</button>
-          <button class="button primary" onclick={createSampleSkill}>New draft skill</button>
         </div>
       </section>
 
@@ -430,6 +445,110 @@
           </div>
         </section>
       </section>
+    {:else if mode === 'project'}
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Project Inventory</p>
+          <h2>{activeScanSummary.selectedProject?.displayName ?? 'Selected project'}</h2>
+          <p>{activeScanSummary.selectedProject?.rootPath ?? 'Fixture scenarios can include a selected project context; local scans currently show root-level capability matches.'}</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="table-toolbar embedded">
+          <div>
+            <strong>{projectRows.length} project-relevant resource{projectRows.length === 1 ? '' : 's'}</strong>
+            <span>Includes project-shared, local/private, inherited, likely active, and needs-review records.</span>
+          </div>
+        </div>
+        <div class="resource-list">
+          {#each projectRows as item (item.id)}
+            <button class="resource-row" onclick={() => selectItem(item.id)}>
+              <span>
+                <strong>{item.name}</strong>
+                <small>{item.description}</small>
+              </span>
+              <span class="resource-meta"><span class="badge">{item.target}</span><span>{item.scope}</span><span>{item.metadata.status}</span></span>
+            </button>
+          {:else}
+            <div class="empty">No project-scoped or inherited capability resources in this data set.</div>
+          {/each}
+        </div>
+      </section>
+    {:else if mode === 'clients'}
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Clients</p>
+          <h2>Supported client coverage</h2>
+          <p>Client cards combine known locations with normalized resources from the active fixture or local scan.</p>
+        </div>
+      </section>
+
+      <section class="client-grid">
+        {#each clientSummaries as summary}
+          <article class="client-card">
+            <div class="client-card-header">
+              <h3>{summary.client}</h3>
+              <span class:ok-status={summary.found} class="client-status">{summary.found ? 'found' : 'not found'}</span>
+            </div>
+            <dl class="meta compact-meta">
+              <div><dt>Resources</dt><dd>{summary.resources.length}</dd></div>
+              <div><dt>Known locations</dt><dd>{summary.locations.length}</dd></div>
+            </dl>
+            <div class="resource-list compact-list">
+              {#each summary.resources.slice(0, 4) as item (item.id)}
+                <button class="resource-row compact-row" onclick={() => selectItem(item.id)}>
+                  <span>
+                    <strong>{item.name}</strong>
+                    <small>{item.kind} · {item.scope}</small>
+                  </span>
+                </button>
+              {:else}
+                <div class="empty small-empty">No resources in this data set.</div>
+              {/each}
+            </div>
+          </article>
+        {/each}
+      </section>
+    {:else if mode === 'cross-client'}
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Cross-Client</p>
+          <h2>Capability groups</h2>
+          <p>Resources are grouped by normalized name and type so duplicate names can be compared without assuming they are identical.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="table-scroll cross-client-scroll" role="region" aria-label="Cross-client capability groups">
+          <table class="inventory-table">
+            <thead>
+              <tr>
+                <th class="name-column" scope="col">Capability</th>
+                <th class="kind-column" scope="col">Type</th>
+                <th scope="col">Clients</th>
+                <th scope="col">Scopes</th>
+                <th class="issues-column" scope="col">Issues</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each crossClientGroups as group (group.key)}
+                <tr>
+                  <td><strong>{group.name}</strong></td>
+                  <td>{group.kind}</td>
+                  <td>{group.clients.join(', ')}</td>
+                  <td>{group.scopes.join(', ')}</td>
+                  <td>{group.warnings}</td>
+                </tr>
+              {:else}
+                <tr>
+                  <td colspan="5"><div class="empty table-empty">No capability groups in this data set.</div></td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </section>
     {:else if mode === 'detail'}
       <section class="detail-page">
         <button class="button ghost back-button" onclick={backToInventory}>← Back to inventory</button>
@@ -478,34 +597,6 @@
             <span>The selected skill may have disappeared after a scan. Return to the inventory and choose another asset.</span>
           </div>
         {/if}
-      </section>
-    {:else if mode === 'create'}
-      <section class="panel create-panel">
-        <p class="eyebrow">Draft workflow</p>
-        <h2>Create skill</h2>
-        <p>The MVP creates a safe draft object and shows the target file layout. Native writes should go through the Tauri backend with backup + diff preview.</p>
-        <button class="button primary" onclick={createSampleSkill}>Create Claude/Hermes-compatible SKILL.md draft</button>
-        <pre>~/.claude/skills/new-skill/SKILL.md
----
-name: new-skill
-description: Describe when an agent should use this skill.
----
-
-# New Skill
-
-Operational instructions...</pre>
-      </section>
-    {:else}
-      <section class="panel prose">
-        <p class="eyebrow">Product strategy</p>
-        <h2>Research-backed wedge</h2>
-        <p><strong>Skillage should not be just a prompt manager.</strong> The high-value wedge is an effective-context inspector, validator, and converter for developer agent instructions.</p>
-        <ul>
-          <li>Developers are juggling CLAUDE.md, AGENTS.md, SKILL.md directories, Cursor MDC rules, MCP config, and project/global overrides.</li>
-          <li>The common complaint is not knowing which instruction is active, why it was ignored, and how to keep formats in sync.</li>
-          <li>Local-first is the right default because these files often include private project conventions and paths.</li>
-          <li>Tauri is the right long-term shell for size and security; Svelte keeps the frontend light.</li>
-        </ul>
       </section>
     {/if}
   </main>
