@@ -9,7 +9,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Keep profile resources separate unless client behavior clearly indicates inheritance.
   - Validation: Hermes detector tests cover default profile, two named profiles, and no cross-profile merging.
 
-- [ ] **Task 4.2**: Detect Hermes config, MCP, skills, and bundled resources
+- [x] **Task 4.2**: Detect Hermes config, MCP, skills, and bundled resources
   - Detect Hermes MCP servers, user skills, bundled skills, optional skills, config files, and cache/quarantine artifacts.
   - Mark cache/quarantine artifacts as internal or temporary and keep them hidden by default unless the UI exposes an internal-artifacts filter.
   - Validation: Tests cover active user skills, bundled skills, optional skills, cache artifacts, and MCP config extraction.
