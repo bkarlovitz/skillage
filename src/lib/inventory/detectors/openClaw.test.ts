@@ -197,4 +197,26 @@ describe('OpenClaw detector', () => {
     expect(skills.some((resource) => resource.scope === 'plugin-bundled')).toBe(true);
     expect(skills.every((resource) => resource.status === 'needs-review')).toBe(true);
   });
+
+  it('adds gateway caveat when remote or gateway hints are present', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/openclaw.json',
+      content: JSON.stringify({ gateway: { enabled: true, url: 'https://gateway.example.invalid' } })
+    }]);
+    const config = result.resources.find((resource) => resource.resourceType === 'config-file');
+
+    expect(config?.metadata.gatewayOrRemoteMode).toBe(true);
+    expect(config?.warnings.some((item) => item.message.includes('gateway/remote mode'))).toBe(true);
+  });
+
+  it('does not add gateway caveat when remote hints are absent', () => {
+    const result = detectOpenClaw([{
+      path: '/home/user/.openclaw/openclaw.json',
+      content: JSON.stringify({ theme: 'dark' })
+    }]);
+    const config = result.resources.find((resource) => resource.resourceType === 'config-file');
+
+    expect(config?.metadata.gatewayOrRemoteMode).toBe(false);
+    expect(config?.warnings.some((item) => item.message.includes('gateway/remote mode'))).toBe(false);
+  });
 });

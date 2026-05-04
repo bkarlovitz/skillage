@@ -38,7 +38,7 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Use needs-review when precedence is uncertain.
   - Validation: Tests cover global/profile/workspace skill name collisions with shadowed, same-name-only, and needs-review outcomes.
 
-- [ ] **Task 4.8**: Add remote/local gateway caveats for OpenClaw
+- [x] **Task 4.8**: Add remote/local gateway caveats for OpenClaw
   - Surface caveats that local desktop inventory may not own full runtime state when OpenClaw appears configured for gateway or remote mode.
   - Validation: Fixture tests show gateway caveat when remote/gateway hints are present and no caveat when absent.
 

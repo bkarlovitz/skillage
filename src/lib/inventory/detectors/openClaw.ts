@@ -112,12 +112,46 @@ function genericResource(file: DetectorFile, sourceEvidence?: CapabilityEvidence
 }
 
 function configResource(file: DetectorFile, parsed: ParsedJsonConfig): CapabilityResource {
+  const base = genericResource(file);
+  const gateway = gatewayHints(parsed);
   return {
-    ...genericResource(file),
+    ...base,
     status: parsed.parseErrors.length ? 'parse-error' : 'found',
     contentPreview: parsed.contentPreview,
-    warnings: parsed.warnings
+    warnings: [
+      ...parsed.warnings,
+      ...(gateway.present ? [warning('runtime-caveat', 'warning', 'OpenClaw appears configured for gateway/remote mode; local desktop inventory may not own full runtime state.', gateway.evidence)] : [])
+    ],
+    metadata: {
+      ...base.metadata,
+      gatewayOrRemoteMode: gateway.present,
+      gatewayHintPath: gateway.evidence?.parsedKeyPath ?? ''
+    }
   };
+}
+
+function truthyConfigValue(value: JsonValue | undefined): boolean {
+  return value === true || (typeof value === 'string' && ['true', 'gateway', 'remote'].includes(value.toLowerCase()));
+}
+
+function gatewayHints(parsed: ParsedJsonConfig): { present: boolean; evidence?: CapabilityEvidence } {
+  const checks: Array<readonly string[]> = [
+    ['gateway', 'enabled'],
+    ['gateway', 'url'],
+    ['remote', 'enabled'],
+    ['remote', 'url'],
+    ['remoteUrl'],
+    ['mode']
+  ];
+
+  for (const keyPath of checks) {
+    const result = getJsonValueAtPath(parsed, keyPath);
+    if (!result) continue;
+    if (keyPath.join('.') === 'mode' && !truthyConfigValue(result.value)) continue;
+    return { present: true, evidence: result.evidence };
+  }
+
+  return { present: false };
 }
 
 function firstObjectAtPath(parsed: ParsedJsonConfig, paths: Array<readonly string[]>): { value: JsonObject; evidence: CapabilityEvidence } | undefined {
