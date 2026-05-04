@@ -50,6 +50,6 @@ Demo Machine Inventory support for Hermes and OpenClaw, with profile-scoped reso
   - Update the Machine Inventory view so all six clients render consistently while preserving client-specific scope/profile distinctions.
   - Validation: `npm run test`, `npm run check`, and `npm run build` pass; fixture demo shows found/not-found/partial states for all six clients.
 
-- [ ] **Task 4.11**: Update standard-location discovery for all six clients
+- [x] **Task 4.11**: Update standard-location discovery for all six clients
   - Ensure local scan roots include all six clients on supported OSes, including Windows user locations and WSL homes for the Windows build.
   - Validation: Root registry tests prove each client has Windows, WSL, Linux, and macOS coverage where applicable.

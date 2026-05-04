@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scanRoot, virtualFilesToDevScanSummary } from '../../../vite.config';
+import { scanRoot, standardRootCandidates, virtualFilesToDevScanSummary } from '../../../vite.config';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -62,5 +62,16 @@ describe('Vite dev scanner contract', () => {
     expect(summary.resources.some((resource) => resource.client === 'hermes' && resource.resourceType === 'mcp-server')).toBe(true);
     expect(summary.resources.some((resource) => resource.client === 'openclaw' && resource.resourceType === 'client-installation')).toBe(true);
     expect(summary.resources.some((resource) => resource.client === 'openclaw' && resource.warnings.some((warning) => warning.message.includes('gateway/remote')))).toBe(true);
+  });
+
+  it('defines standard root candidates for all six clients', () => {
+    const roots = standardRootCandidates('/Users/alice', '/Users/alice/AppData/Roaming').map((root) => root.replace(/\\/g, '/'));
+
+    expect(roots.some((root) => root.endsWith('/.claude'))).toBe(true);
+    expect(roots.some((root) => root.includes('/Claude'))).toBe(true);
+    expect(roots.some((root) => root.endsWith('/.codex'))).toBe(true);
+    expect(roots.some((root) => root.endsWith('/.cursor'))).toBe(true);
+    expect(roots.some((root) => root.endsWith('/.hermes'))).toBe(true);
+    expect(roots.some((root) => root.endsWith('/.openclaw'))).toBe(true);
   });
 });

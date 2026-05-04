@@ -91,12 +91,13 @@ function scanRootFiles(root: string): VirtualFile[] {
   return files;
 }
 
-export function standardRoots(): string[] {
-  const home = os.homedir();
-  return [
+export function standardRootCandidates(home = os.homedir(), appData = process.env.APPDATA): string[] {
+  const roots = [
     path.join(home, '.claude'),
     path.join(home, '.config', 'Claude'),
     path.join(home, 'Library', 'Application Support', 'Claude'),
+    path.join(home, '.hermes'),
+    path.join(home, '.hermes', 'profiles'),
     path.join(home, '.hermes', 'skills'),
     path.join(home, '.hermes', 'hermes-agent', 'skills'),
     path.join(home, '.hermes', 'hermes-agent', 'optional-skills'),
@@ -108,6 +109,19 @@ export function standardRoots(): string[] {
     path.join(home, '.openclaw'),
     '/etc/codex',
     process.cwd()
+  ];
+
+  if (appData) {
+    roots.push(path.join(appData, 'Claude'));
+    roots.push(path.join(appData, 'Cursor', 'User'));
+  }
+
+  return roots;
+}
+
+export function standardRoots(): string[] {
+  return [
+    ...standardRootCandidates()
   ].filter((candidate, index, all) => fs.existsSync(candidate) && all.indexOf(candidate) === index);
 }
 

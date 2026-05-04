@@ -236,10 +236,22 @@ fn is_interesting(path: &Path) -> bool {
         || file_name == "TOOLS.md"
         || file_name == "MEMORY.md"
         || file_name == ".cursorrules"
+        || file_name == "claude_desktop_config.json"
         || file_name == "hooks.json"
         || file_name == "openclaw.json"
+        || ((file_name == "settings.json" || file_name == "settings.local.json" || file_name == "mcp.json")
+            && (lower.contains("/.claude/") || lower.contains("/.cursor/")))
+        || ((file_name == "config.yaml" || file_name == "config.yml" || file_name == "config.json" || file_name == "mcp.json")
+            && lower.contains("/.hermes/"))
         || (file_name == "config.toml" && lower.contains("/.codex/"))
+        || ((file_name == "config.json" || file_name == "openclaw.json") && lower.contains("/.openclaw/"))
+        || (normalized.contains("/.claude/commands/") && file_name.ends_with(".md"))
+        || (normalized.contains("/.claude/agents/") && file_name.ends_with(".md"))
+        || (normalized.contains("/.codex/agents/") && file_name.ends_with(".toml"))
+        || (normalized.contains("/.agents/") && (file_name == "SKILL.md" || file_name == "plugin.json" || file_name == "marketplace.json"))
         || (normalized.contains("/.cursor/rules/") && (file_name.ends_with(".mdc") || file_name.ends_with(".md")))
+        || (normalized.contains("/.hermes/profiles/") && file_name == "SKILL.md")
+        || (normalized.contains("/.hermes/hermes-agent/") && file_name == "SKILL.md")
         || (normalized.contains("/.openclaw/") && file_name.ends_with(".md"))
         || (normalized.contains("/.claude/rules/") && file_name.ends_with(".md"))
         || (normalized.contains("/.codex/rules/") && file_name.ends_with(".rules"))
@@ -790,14 +802,33 @@ fn expand_root(root: &str) -> PathBuf {
 fn standard_skill_roots_for_home(home: &Path) -> Vec<PathBuf> {
     vec![
         home.join(".claude"),
+        home.join(".config").join("Claude"),
+        home.join("Library").join("Application Support").join("Claude"),
+        home.join(".hermes"),
+        home.join(".hermes").join("profiles"),
         home.join(".hermes").join("skills"),
         home.join(".hermes").join("hermes-agent").join("skills"),
         home.join(".hermes").join("hermes-agent").join("optional-skills"),
         home.join(".codex"),
         home.join(".agents"),
+        home.join(".cursor"),
+        home.join(".config").join("Cursor").join("User"),
+        home.join("Library").join("Application Support").join("Cursor").join("User"),
         home.join(".openclaw"),
         PathBuf::from("/etc/codex"),
     ]
+}
+
+fn appdata_roots() -> Vec<PathBuf> {
+    env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .map(|appdata| {
+            vec![
+                appdata.join("Claude"),
+                appdata.join("Cursor").join("User"),
+            ]
+        })
+        .unwrap_or_default()
 }
 
 #[cfg(windows)]
@@ -837,6 +868,7 @@ fn standard_roots() -> Vec<PathBuf> {
     if let Some(home) = home_dir() {
         roots.extend(standard_skill_roots_for_home(&home));
     }
+    roots.extend(appdata_roots());
 
     // If Skillage is run as a Windows desktop app while the user's agent skills live in WSL,
     // include discoverable WSL distro home directories via the Windows UNC namespace.
@@ -1208,6 +1240,22 @@ mod tests {
         assert!(records.resources.iter().all(|resource| !resource.path.as_deref().unwrap_or_default().contains("level-")));
 
         fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn standard_roots_cover_all_six_client_families_for_home_and_appdata() {
+        let home = PathBuf::from("/home/alice");
+        let roots = standard_skill_roots_for_home(&home)
+            .into_iter()
+            .map(|root| root.to_string_lossy().replace('\\', "/"))
+            .collect::<Vec<_>>();
+
+        assert!(roots.iter().any(|root| root.ends_with("/.claude")));
+        assert!(roots.iter().any(|root| root.contains("/Claude")));
+        assert!(roots.iter().any(|root| root.ends_with("/.codex")));
+        assert!(roots.iter().any(|root| root.ends_with("/.cursor")));
+        assert!(roots.iter().any(|root| root.ends_with("/.hermes")));
+        assert!(roots.iter().any(|root| root.ends_with("/.openclaw")));
     }
 
     #[test]

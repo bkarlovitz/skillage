@@ -49,5 +49,9 @@ describe('known location registry', () => {
     expect(windows.some((location) => location.path?.includes(String.raw`C:\Users\alice`))).toBe(true);
     expect(windows.some((location) => location.path?.includes(String.raw`AppData\Roaming`))).toBe(true);
     expect(wsl.some((location) => location.path?.startsWith(String.raw`\\wsl.localhost\Ubuntu\home\alice`))).toBe(true);
+    for (const client of capabilityClients) {
+      expect(windows.some((location) => location.client === client), `windows ${client}`).toBe(true);
+      expect(wsl.some((location) => location.client === client), `wsl ${client}`).toBe(true);
+    }
   });
 });
