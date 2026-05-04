@@ -1,69 +1,72 @@
-# Skillage MVP Implementation Plan
+# Skillage V1 Implementation Notes
 
-> For Hermes: Use subagent-driven-development skill to implement future tasks task-by-task.
+This document describes the current v1 implementation. The product behavior target lives in `v1_spec.md`; the normalized data language lives in `docs/V1_MODEL.md`.
 
-Goal: Build a lightweight local-first desktop MVP for read-only inventory and explanation of developer agent capabilities.
+## Current Goal
 
-Architecture: Svelte + TypeScript renders the normalized inventory UI. Core parsers/adapters are pure TypeScript and tested with Vitest. Tauri 2/Rust provides native filesystem scanning and later file watching/safe writes.
+Skillage v1 is a lightweight local-first desktop inventory for developer agent capabilities. It answers:
 
-Tech Stack: Svelte 5, Vite, TypeScript, Vitest, Tauri 2, Rust, MIT license.
+- What supported agent resources exist on this machine?
+- Where did each resource come from?
+- What scope does it appear to have?
+- What may affect a selected project?
+- Which resources need review because of secrets, logs, parse/read problems, duplication, scope caveats, or runtime uncertainty?
 
-## Task 1: Parser and normalized model
+V1 is read-only. It does not author skills, edit config, publish resources, install packages, host MCP servers, authenticate to services, or sync data across machines.
 
-Objective: Represent multiple agent formats in a single typed model.
+## Architecture
 
-Files:
-- `src/lib/types.ts`
-- `src/lib/frontmatter.ts`
-- `src/lib/adapters.ts`
-- `src/lib/adapters.test.ts`
+- Svelte 5 + TypeScript render the inventory UI.
+- Pure TypeScript modules define parsing, fixture scenarios, table/detail models, project analysis, cross-client grouping, and safe preview policy.
+- Tauri 2 + Rust provide narrow native commands for desktop scanning and project path resolution.
+- Vitest covers model contracts, parsers, scanner behavior, fixtures, acceptance cases, privacy, project context, source-path clarity, and documentation guardrails.
 
-Verification:
-- `npm run test`
-- Expected: adapter tests pass.
+## Product Surfaces
 
-## Task 2: Inventory UI
+- `Machine Inventory`: local machine and known client resources grouped by supported client, with scan roots, known locations, scanner records, filters, source paths, preview policy, and warnings.
+- `Project Inventory`: selected project context, project-shared resources, inherited global/profile resources, local/private resources, shared metadata, warnings/caveats, and best-effort effective resources.
+- `Clients`: supported-client coverage cards and client detail views with install/config state, known locations, evidence rows, client-specific sections, explanations, and caveats.
+- `Cross-Client`: conservative grouping by capability name and type, with relationship labels and source locations.
 
-Objective: Display detected capability resources, filters, warnings, source evidence, and safe preview policy.
+## Supported Clients
 
-Files:
-- `src/App.svelte`
-- `src/app.css`
-- `src/lib/inventory/fixtures.ts`
+V1 inventory covers Claude Code, Claude Desktop, Codex, Cursor, Hermes, and OpenClaw. Client support means local discovery, classification, source evidence, scope/status labeling, and safe display. It does not mean runtime health checks or client-managed activation guarantees.
 
-Verification:
-- `npm run check`
-- `npm run build`
+## Scanner Integration
 
-## Task 3: Tauri backend scaffold
+The frontend uses `@tauri-apps/api/core` `invoke` only in Tauri mode:
 
-Objective: Provide native desktop source for scanning local repositories.
+- `scan_skill_files`
+- `scan_standard_skill_files`
+- `select_project_folder`
+- `resolve_project_context`
 
-Files:
-- `src-tauri/Cargo.toml`
-- `src-tauri/tauri.conf.json`
-- `src-tauri/src/lib.rs`
-- `src-tauri/src/main.rs`
+Browser dev mode keeps fixture/demo data and the local Vite scanner bridge separate from desktop scan results.
 
-Verification:
-- On a system with Rust: `npm run tauri:dev`.
+## Safety Rules
 
-## Task 4: Scanner integration
+- Never execute scripts, hooks, MCP commands, or package-manager commands during inventory.
+- Never follow symlinks during scanner traversal.
+- Skip dependency/build directories.
+- Bound scan depth, file size, per-root results, and total results.
+- Treat auth, credential, token, secret, log, session, transcript, cache trace, and memory paths as metadata-only or unread-sensitive by default.
+- Redact secret-like inline values before any redacted config preview.
+- Preserve source paths or explicit unknown-source labels in user-facing detail.
 
-Objective: Wire the frontend to the Tauri `scan_skill_files` command.
+## Validation
 
-Implementation notes:
-- Use `@tauri-apps/api/core` `invoke` only when running inside Tauri.
-- Use `@tauri-apps/plugin-dialog` or a narrow backend command for folder selection.
-- Parse returned virtual files with `parseVirtualFiles`.
-- Keep fixture/demo mode as an explicit user choice, separate from local scan results.
+The standard gates are:
 
-## Task 5: Future safe writes
+```bash
+npm run test
+cargo test --manifest-path src-tauri/Cargo.toml
+npm run check
+npm run build
+npm run tauri:build
+```
 
-Objective: Any future write workflow must be explicit, single-target, and previewed before changing files.
+Environment-specific packaging results are captured in `docs/PACKAGING_QUALITY_GATES.md`.
 
-Implementation notes:
-- Never execute scripts while indexing.
-- Before modifying a file, create `.bak` or use a Skillage-managed backup directory.
-- Prefer atomic writes from Rust.
-- Preserve unknown frontmatter fields.
+## Future Work Boundaries
+
+Future write support, marketplace discovery, install flows, publishing, hosted accounts, and cross-machine sync are outside v1. Any future write workflow should be explicit, single-target, backed up, and diff-previewed before changing global or project files.

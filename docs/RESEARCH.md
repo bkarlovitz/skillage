@@ -44,7 +44,7 @@ The strongest wedge is:
 
 This is more valuable than a generic prompt manager because it solves the messy local filesystem reality developers already have.
 
-## MVP feature recommendation
+## Initial feature recommendation
 
 1. Local inventory scanner
    - Project roots and global locations.

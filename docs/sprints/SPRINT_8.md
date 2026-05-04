@@ -43,7 +43,7 @@ Demo the final v1 acceptance flow end to end in desktop mode, with safe inventor
   - Capture any environment-specific limitations clearly in docs rather than hiding them.
   - Validation: `npm run test`, `cargo test`, `npm run check`, `npm run build`, and `npm run tauri:build` pass where the environment supports them.
 
-- [ ] **Task 8.10**: Update README and implementation docs for v1
+- [x] **Task 8.10**: Update README and implementation docs for v1
   - Describe the v1 inventory surfaces, supported clients, safety posture, non-goals, fixture/demo mode, project scanning, cross-client graph, and Windows/WSL behavior.
   - Remove obsolete MVP language that presents authoring, editing, distribution, or cross-machine workflows as current functionality.
   - Validation: review `README.md`, `docs`, and `src` for misleading current-state matches.

@@ -6,7 +6,7 @@ Skillage parses agent client configuration only far enough to inventory resource
 
 - JSON configs use native JSON parsing plus typed key-path helpers. JSON extraction preserves the source file path and parsed key path in `CapabilityEvidence`.
 - TOML configs use an explicit best-effort parser for the subset needed by Codex-style configs: scalar assignments, arrays, inline tables, standard tables, dotted tables, and arrays of tables. It is not a general TOML compliance layer.
-- YAML-like files are limited to the existing markdown frontmatter parser. Skillage does not parse arbitrary YAML configs in Sprint 3.
+- YAML-like files are limited to the existing markdown frontmatter parser. Skillage does not parse arbitrary YAML configs in v1.
 
 ## Unsupported constructs
 

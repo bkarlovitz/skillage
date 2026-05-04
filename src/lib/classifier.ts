@@ -151,7 +151,7 @@ export function classifyPath(filePath: string): Classification | null {
     if (base === 'settings.json' || base === 'settings.local.json') return make('claude-code', 'config', defaultScope, defaultOrigin, { entryFile });
   }
 
-  // Codex CLI config/cache and official .agents skill/plugin authoring locations.
+  // Codex CLI config/cache and official .agents skill/plugin locations.
   const codexIndex = lowerParts.indexOf('.codex');
   if (codexIndex >= 0) {
     if (lower.includes('/.codex/.tmp/plugins/')) {
