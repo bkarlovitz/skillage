@@ -29,7 +29,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Use read-only git commands without writes, hooks, network, or submodule recursion.
   - Validation: Tests or fixture-backed command wrappers cover all five git metadata states and git-missing fallback.
 
-- [ ] **Task 5.6**: Scan project resources with the same safe policy as machine scan
+- [x] **Task 5.6**: Scan project resources with the same safe policy as machine scan
   - Detect project-scoped configs, MCP servers, skills, instructions, rules, hooks, permissions, plugins, and local/private resources.
   - Apply the same redaction and metadata-only behavior for sensitive config/log/session files.
   - Validation: Project scanner tests cover project MCP, hook, instruction, secret-like config, and log/session presence.
