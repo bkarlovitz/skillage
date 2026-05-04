@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeCoreClients } from './clientSummary';
+import { buildClientDetailModels, summarizeCoreClients } from './clientSummary';
 import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './fixtures';
 
 describe('inventory fixture scenarios', () => {
@@ -41,7 +41,30 @@ describe('inventory fixture scenarios', () => {
     expect(full.map((summary) => summary.client)).toEqual(['claude-code', 'claude-desktop', 'codex', 'cursor', 'hermes', 'openclaw']);
     expect(full.every((summary) => summary.status === 'configured' || summary.status === 'installed')).toBe(true);
     expect(notFound.every((summary) => summary.status === 'not-found')).toBe(true);
-    expect(partial.some((summary) => summary.status === 'partially-configured')).toBe(true);
+    expect(partial.every((summary) => summary.status === 'partially-configured')).toBe(true);
+    expect(partial.every((summary) => summary.parseErrorCount > 0 || summary.unreadableCount > 0)).toBe(true);
+  });
+
+  it('covers configured, not-found, and partial parse-error client detail states for every client', () => {
+    const full = buildClientDetailModels(getFixtureScenario('full-machine').summary);
+    const notFound = buildClientDetailModels(getFixtureScenario('not-found-clients').summary);
+    const partial = buildClientDetailModels(getFixtureScenario('parse-read-error').summary);
+
+    for (const detail of full) {
+      expect(['configured', 'installed']).toContain(detail.status);
+      expect(detail.resources.length).toBeGreaterThan(0);
+    }
+
+    for (const detail of notFound) {
+      expect(detail.status).toBe('not-found');
+      expect(detail.knownLocations.every((location) => location.exists === false)).toBe(true);
+    }
+
+    for (const detail of partial) {
+      expect(detail.status).toBe('partially-configured');
+      expect(detail.parseErrors.length + detail.readErrors.length).toBeGreaterThan(0);
+      expect(detail.evidenceRows.some((row) => row.parseStatus === 'parse-error' || row.readStatus === 'unreadable')).toBe(true);
+    }
   });
 
   it('models inherited globals, duplicates, and not-found clients as separate states', () => {

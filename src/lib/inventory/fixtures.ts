@@ -753,24 +753,101 @@ const secretWarningResources = [
   })
 ];
 
+function parseErrorResource(input: {
+  id: string;
+  name: string;
+  description: string;
+  client: CapabilityClient;
+  path: string;
+  scannerRule: string;
+  matchedPathPattern: string;
+  message: string;
+  scope?: CapabilityScope;
+}): CapabilityResource {
+  const sourceEvidence: CapabilityEvidence = {
+    sourcePath: input.path,
+    scannerRule: input.scannerRule,
+    matchedPathPattern: input.matchedPathPattern,
+    readStatus: 'read',
+    parseStatus: 'parse-error'
+  };
+
+  return resource({
+    id: input.id,
+    name: input.name,
+    description: input.description,
+    client: input.client,
+    resourceType: 'config-file',
+    scope: input.scope ?? 'global',
+    status: 'parse-error',
+    path: input.path,
+    evidence: [sourceEvidence],
+    warnings: [{ kind: 'parse-read-problem', severity: 'error', message: input.message, evidence: sourceEvidence }]
+  });
+}
+
 const parseReadResources = [
-  resource({
+  parseErrorResource({
+    id: 'parse-error-claude-code-settings',
+    name: 'Claude Code settings',
+    description: 'Claude Code settings exist but could not be parsed.',
+    client: 'claude-code',
+    path: '~/.claude/settings.json',
+    scannerRule: 'claude-code-config',
+    matchedPathPattern: 'settings.json',
+    message: 'Unexpected token while parsing Claude Code settings.'
+  }),
+  parseErrorResource({
+    id: 'parse-error-claude-desktop-config',
+    name: 'Claude Desktop config',
+    description: 'Claude Desktop config exists but could not be parsed.',
+    client: 'claude-desktop',
+    path: '~/Library/Application Support/Claude/claude_desktop_config.json',
+    scannerRule: 'claude-desktop-config',
+    matchedPathPattern: 'claude_desktop_config.json',
+    message: 'Unexpected token while parsing Claude Desktop config.'
+  }),
+  parseErrorResource({
+    id: 'parse-error-codex-config',
+    name: 'Codex config',
+    description: 'Codex config exists but could not be parsed.',
+    client: 'codex',
+    path: '~/.codex/config.toml',
+    scannerRule: 'codex-config',
+    matchedPathPattern: 'config.toml',
+    message: 'Unexpected token while parsing Codex config.'
+  }),
+  parseErrorResource({
     id: 'parse-error-cursor-mcp',
     name: 'Cursor MCP config',
     description: 'Cursor MCP config exists but could not be parsed.',
     client: 'cursor',
-    resourceType: 'config-file',
-    scope: 'project-shared',
-    status: 'parse-error',
     path: '/repo/.cursor/mcp.json',
-    evidence: [{
-      sourcePath: '/repo/.cursor/mcp.json',
-      scannerRule: 'cursor-project-mcp',
-      matchedPathPattern: '.cursor/mcp.json',
-      readStatus: 'read',
-      parseStatus: 'parse-error'
-    }],
-    warnings: [{ kind: 'parse-read-problem', severity: 'error', message: 'Unexpected token while parsing Cursor MCP config.' }]
+    scannerRule: 'cursor-project-mcp',
+    matchedPathPattern: '.cursor/mcp.json',
+    message: 'Unexpected token while parsing Cursor MCP config.',
+    scope: 'project-shared'
+  }),
+  parseErrorResource({
+    id: 'parse-error-hermes-config',
+    name: 'Hermes config',
+    description: 'Hermes config exists but could not be parsed.',
+    client: 'hermes',
+    path: '~/.hermes/profiles/default/config.yaml',
+    scannerRule: 'hermes-config',
+    matchedPathPattern: 'config.yaml',
+    message: 'Unexpected token while parsing Hermes config.',
+    scope: 'profile'
+  }),
+  parseErrorResource({
+    id: 'parse-error-openclaw-config',
+    name: 'OpenClaw config',
+    description: 'OpenClaw config exists but could not be parsed.',
+    client: 'openclaw',
+    path: '~/.openclaw/openclaw.json',
+    scannerRule: 'openclaw-config',
+    matchedPathPattern: 'openclaw.json',
+    message: 'Unexpected token while parsing OpenClaw config.'
   }),
   resource({
     id: 'read-error-openclaw-auth',
@@ -791,6 +868,26 @@ const parseReadResources = [
     warnings: [{ kind: 'parse-read-problem', severity: 'error', message: 'Permission denied while reading auth store.' }]
   })
 ];
+
+const parseReadParseErrors = parseReadResources
+  .filter((item) => item.evidence[0]?.parseStatus === 'parse-error')
+  .map((item) => ({
+    id: `fixture-${item.id}`,
+    client: item.client,
+    path: item.path ?? item.evidence[0].sourcePath ?? item.id,
+    message: item.warnings[0]?.message ?? `${item.name} parse error`,
+    evidence: item.evidence[0]
+  }));
+
+const parseReadReadErrors = parseReadResources
+  .filter((item) => item.evidence[0]?.readStatus === 'unreadable')
+  .map((item) => ({
+    id: `fixture-${item.id}`,
+    client: item.client,
+    path: item.path ?? item.evidence[0].sourcePath ?? item.id,
+    message: item.warnings[0]?.message ?? `${item.name} read error`,
+    evidence: item.evidence[0]
+  }));
 
 const notFoundResources = notFoundLocations.map((location) => resource({
   id: `not-found-${location.client}`,
@@ -884,20 +981,8 @@ export const fixtureScenarios: InventoryFixtureScenario[] = [
       dataSource: 'fixture',
       resources: parseReadResources,
       knownClientLocations: clientLocations,
-      parseErrors: [{
-        id: 'fixture-parse-error-cursor-mcp',
-        client: 'cursor',
-        path: '/repo/.cursor/mcp.json',
-        message: 'Unexpected token while parsing Cursor MCP config.',
-        evidence: parseReadResources[0].evidence[0]
-      }],
-      readErrors: [{
-        id: 'fixture-read-error-openclaw-auth',
-        client: 'openclaw',
-        path: '~/.openclaw/auth.json',
-        message: 'Permission denied while reading auth store.',
-        evidence: parseReadResources[1].evidence[0]
-      }]
+      parseErrors: parseReadParseErrors,
+      readErrors: parseReadReadErrors
     })
   },
   {

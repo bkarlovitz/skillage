@@ -43,7 +43,7 @@ Demo dedicated detail views for all six clients, each answering client-specific 
   - Keep explanations source-backed and avoid claiming runtime activity unless tested.
   - Validation: Explanation tests verify expected caveats for each client-specific scenario.
 
-- [ ] **Task 6.10**: Add not-found and partial-state fixtures for every client
+- [x] **Task 6.10**: Add not-found and partial-state fixtures for every client
   - Ensure each client detail page can render not-found, partially configured, configured, and parse-error scenarios.
   - Validation: Fixture tests cover every client state and `npm run check` passes.
 
