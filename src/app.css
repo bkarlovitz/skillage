@@ -207,6 +207,7 @@ input::placeholder { color: var(--text-subtle); }
   box-shadow: var(--shadow-sm);
 }
 .filters { grid-template-columns: minmax(0, 1fr) auto; }
+.cross-client-filters { grid-template-columns: repeat(6, minmax(120px, 1fr)); align-items: end; }
 .toggle-field {
   display: flex;
   align-items: center;
@@ -322,6 +323,7 @@ input::placeholder { color: var(--text-subtle); }
 }
 .metadata-panel h3 { margin-bottom: 10px; }
 .metadata-list { display: grid; gap: 7px; }
+.metadata-list.inline-list { gap: 5px; }
 .metadata-row {
   display: flex;
   align-items: center;

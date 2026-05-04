@@ -37,7 +37,7 @@ Demo a cross-client view that groups related capabilities, identifies duplicates
   - Make duplication useful rather than alarming by explaining when duplication may be intentional.
   - Validation: `npm run check` and `npm run build` pass; fixture demo shows duplicate MCP, same-name-only skill, and project shadowing examples.
 
-- [ ] **Task 7.8**: Add cross-client filters and drilldowns
+- [x] **Task 7.8**: Add cross-client filters and drilldowns
   - Filter by client, resource type, scope, status, warning category, and relationship label.
   - Link grouped entries back to client detail and source resource detail panels.
   - Validation: UI tests or fixture assertions cover filtering and drilldown paths.

@@ -4,13 +4,15 @@
   import { buildClientSpecificExplanations } from './lib/inventory/clientExplanations';
   import { buildClientSpecificSections } from './lib/inventory/clientSpecificDetails';
   import { buildClientDetailModels, summarizeCoreClients } from './lib/inventory/clientSummary';
-  import { buildCrossClientViewModel } from './lib/inventory/crossClientViewModel';
+  import { buildCrossClientViewModel, filterCrossClientGroups } from './lib/inventory/crossClientViewModel';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
+  import { insightCategories } from './lib/inventory/insights';
   import { projectInventoryStates } from './lib/inventory/project/states';
+  import { relationshipLabels } from './lib/inventory/relationships';
   import { buildSafeResourceDetailPanels } from './lib/inventory/safeDetailPanels';
   import type { ScanSummary } from './lib/inventory/scan';
   import { filterCapabilityResources } from './lib/inventory/tableModel';
-  import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
+  import { capabilityClients, capabilityResourceTypes, capabilityScopes, capabilityStatuses, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
   import { resolveProjectContext, runtimeLabel, scanRoot, scanStandardLocations, selectProjectFolder } from './lib/native';
   import { paginate, sortCapabilityResources, type SortDirection, type SortKey } from './lib/table';
   import { applyTheme, getStoredTheme, resolveTheme, storeTheme, systemPrefersDark, type ThemePreference } from './lib/theme';
@@ -43,6 +45,12 @@
   let sortKey = $state<SortKey>('name');
   let sortDirection = $state<SortDirection>('asc');
   let includeInternalArtifacts = $state(false);
+  let crossClientFilterClient = $state('all');
+  let crossClientFilterType = $state('all');
+  let crossClientFilterScope = $state('all');
+  let crossClientFilterStatus = $state('all');
+  let crossClientFilterWarning = $state('all');
+  let crossClientFilterRelationship = $state('all');
   const currentRuntime = runtimeLabel();
 
   const filtered = $derived(filterCapabilityResources(items, { query, target, includeInternalArtifacts }));
@@ -103,7 +111,15 @@
     ...activeScanSummary.skippedSensitiveStores.map((store) => ({ id: store.id, severity: 'warning', label: 'Skipped sensitive', message: store.reason, path: store.path })),
     ...activeScanSummary.warnings.map((warning) => ({ id: warning.id, severity: warning.severity, label: 'Scanner warning', message: warning.message, path: warning.evidence?.sourcePath ?? warning.evidence?.sourceLabel ?? '' }))
   ]);
-  const crossClientGroups = $derived(buildCrossClientViewModel(items));
+  const crossClientAllGroups = $derived(buildCrossClientViewModel(items));
+  const crossClientGroups = $derived(filterCrossClientGroups(crossClientAllGroups, {
+    client: crossClientFilterClient,
+    resourceType: crossClientFilterType,
+    scope: crossClientFilterScope,
+    status: crossClientFilterStatus,
+    warningCategory: crossClientFilterWarning,
+    relationshipLabel: crossClientFilterRelationship
+  }));
 
   function selectItem(id: string) {
     selectedId = id;
@@ -113,6 +129,10 @@
   function selectClientDetail(client: CapabilityClient) {
     selectedClient = client;
     mode = 'client-detail';
+  }
+
+  function selectCrossClientClient(client: string) {
+    if (capabilityClients.includes(client as CapabilityClient)) selectClientDetail(client as CapabilityClient);
   }
 
   function backToInventory() {
@@ -938,6 +958,63 @@
         </div>
       </section>
 
+      <section class="filters cross-client-filters" aria-label="Cross-client filters">
+        <label class="field">
+          <span>Client</span>
+          <select bind:value={crossClientFilterClient}>
+            <option value="all">all</option>
+            {#each capabilityClients as client}
+              <option value={client}>{client}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="field">
+          <span>Type</span>
+          <select bind:value={crossClientFilterType}>
+            <option value="all">all</option>
+            {#each capabilityResourceTypes as resourceType}
+              <option value={resourceType}>{resourceType}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="field">
+          <span>Scope</span>
+          <select bind:value={crossClientFilterScope}>
+            <option value="all">all</option>
+            {#each capabilityScopes as scope}
+              <option value={scope}>{scope}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="field">
+          <span>Status</span>
+          <select bind:value={crossClientFilterStatus}>
+            <option value="all">all</option>
+            {#each capabilityStatuses as status}
+              <option value={status}>{status}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="field">
+          <span>Warning</span>
+          <select bind:value={crossClientFilterWarning}>
+            <option value="all">all</option>
+            {#each insightCategories as category}
+              <option value={category}>{category}</option>
+            {/each}
+          </select>
+        </label>
+        <label class="field">
+          <span>Relationship</span>
+          <select bind:value={crossClientFilterRelationship}>
+            <option value="all">all</option>
+            {#each relationshipLabels as relationship}
+              <option value={relationship}>{relationship}</option>
+            {/each}
+          </select>
+        </label>
+      </section>
+
       <section class="panel">
         <div class="table-scroll cross-client-scroll" role="region" aria-label="Cross-client capability groups">
           <table class="inventory-table">
@@ -963,9 +1040,28 @@
                   </td>
                   <td>{group.resourceType}</td>
                   <td><span class="badge">{group.relationshipLabel}</span></td>
-                  <td>{group.clients.join(', ')}</td>
+                  <td>
+                    <div class="metadata-list inline-list">
+                      {#each group.clients as client}
+                        <button class="metadata-row button-row" onclick={() => selectCrossClientClient(client)}>
+                          <span><strong>{client}</strong></span>
+                        </button>
+                      {/each}
+                    </div>
+                  </td>
                   <td>{group.scopes.join(', ')}</td>
-                  <td>{group.sourceLocations.slice(0, 2).join(', ')}{group.sourceLocations.length > 2 ? ` +${group.sourceLocations.length - 2}` : ''}</td>
+                  <td>
+                    <div class="metadata-list inline-list">
+                      {#each group.rows.slice(0, 2) as row}
+                        <button class="metadata-row button-row" onclick={() => selectItem(row.resourceId)}>
+                          <span><strong>{row.client}</strong><small>{row.sourceLocation}</small></span>
+                        </button>
+                      {/each}
+                      {#if group.rows.length > 2}
+                        <span class="badge">+{group.rows.length - 2}</span>
+                      {/if}
+                    </div>
+                  </td>
                   <td>{group.notes[0] ?? 'No relationship note.'}</td>
                 </tr>
               {:else}
