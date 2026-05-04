@@ -231,6 +231,7 @@ struct SelectedProjectContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     repo_root_path: Option<String>,
     scan_root_path: String,
+    normalized_project_id: String,
     display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     active_profile: Option<String>,
@@ -831,6 +832,36 @@ fn display_name_for_path(path: &Path) -> String {
         .to_string()
 }
 
+fn normalize_project_id(path: &str) -> String {
+    let slash_path = path.replace('\\', "/");
+    let unc = slash_path.starts_with("//");
+    let mut collapsed = String::new();
+    let mut previous_slash = false;
+
+    for character in slash_path.chars() {
+        if character == '/' {
+            if !previous_slash {
+                collapsed.push(character);
+            }
+            previous_slash = true;
+        } else {
+            collapsed.push(character);
+            previous_slash = false;
+        }
+    }
+
+    if unc && !collapsed.starts_with("//") {
+        collapsed.insert(0, '/');
+    }
+
+    let normalized = collapsed.trim_end_matches('/').to_lowercase();
+    normalized
+        .strip_prefix("//wsl.localhost/")
+        .or_else(|| normalized.strip_prefix("//wsl$/"))
+        .map(|rest| format!("wsl:/{}", rest))
+        .unwrap_or(normalized)
+}
+
 fn project_folder_selection(root: &str) -> Result<ProjectFolderSelection, String> {
     let root = expand_root(root);
     if !root.exists() {
@@ -885,7 +916,8 @@ fn selected_project_context(root: &str) -> Result<SelectedProjectContext, String
         root_path: scan_root_path.clone(),
         selected_path: selection.selected_path,
         repo_root_path,
-        scan_root_path,
+        scan_root_path: scan_root_path.clone(),
+        normalized_project_id: normalize_project_id(&scan_root_path),
         display_name: selection.display_name,
         active_profile: None,
         trust_state: "unknown".to_string(),
@@ -1210,9 +1242,23 @@ mod tests {
 
         assert_eq!(context.selected_path, context.scan_root_path);
         assert_eq!(context.root_path, context.scan_root_path);
+        assert_eq!(context.normalized_project_id, normalize_project_id(&context.scan_root_path));
         assert!(context.git_root_status == "not-found" || context.git_root_status == "git-unavailable");
 
         fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn normalized_project_ids_preserve_windows_and_collapse_wsl_unc_identity() {
+        assert_eq!(normalize_project_id(r"C:\Users\user\repo"), "c:/users/user/repo");
+        assert_eq!(
+            normalize_project_id(r"\\wsl.localhost\Ubuntu\home\user\repo"),
+            "wsl:/ubuntu/home/user/repo"
+        );
+        assert_eq!(
+            normalize_project_id(r"\\wsl$\Ubuntu\home\user\repo"),
+            "wsl:/ubuntu/home/user/repo"
+        );
     }
 
     #[test]

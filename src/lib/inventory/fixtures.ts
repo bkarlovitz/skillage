@@ -403,6 +403,7 @@ export const fixtureScenarios: InventoryFixtureScenario[] = [
         selectedPath: '/repo',
         repoRootPath: '/repo',
         scanRootPath: '/repo',
+        normalizedProjectId: '/repo',
         displayName: 'repo',
         trustState: 'unknown',
         gitRootStatus: 'found'

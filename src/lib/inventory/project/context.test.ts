@@ -16,6 +16,7 @@ describe('project context resolution', () => {
       selectedPath: '/home/user/repo',
       repoRootPath: '/home/user/repo',
       scanRootPath: '/home/user/repo',
+      normalizedProjectId: '/home/user/repo',
       displayName: 'repo',
       gitRootStatus: 'found',
       trustState: 'unknown'
@@ -64,5 +65,24 @@ describe('project context resolution', () => {
     expect(context.repoRootPath).toBeUndefined();
     expect(context.scanRootPath).toBe('/home/user/repo');
     expect(context.gitRootStatus).toBe('git-unavailable');
+  });
+
+  it('preserves Windows and WSL display paths while normalizing project identity', async () => {
+    const windows = await resolveProjectContext({
+      selectedPath: 'C:\\Users\\user\\repo'
+    }, gitRunner('C:\\Users\\user\\repo\n'));
+    const wslLocalhost = await resolveProjectContext({
+      selectedPath: '\\\\wsl.localhost\\Ubuntu\\home\\user\\repo'
+    }, gitRunner('\\\\wsl.localhost\\Ubuntu\\home\\user\\repo\n'));
+    const wslDollar = await resolveProjectContext({
+      selectedPath: '\\\\wsl$\\Ubuntu\\home\\user\\repo'
+    }, gitRunner('\\\\wsl$\\Ubuntu\\home\\user\\repo\n'));
+
+    expect(windows.selectedPath).toBe('C:\\Users\\user\\repo');
+    expect(windows.normalizedProjectId).toBe('c:/users/user/repo');
+    expect(wslLocalhost.selectedPath).toBe('\\\\wsl.localhost\\Ubuntu\\home\\user\\repo');
+    expect(wslLocalhost.normalizedProjectId).toBe('wsl:/ubuntu/home/user/repo');
+    expect(wslDollar.selectedPath).toBe('\\\\wsl$\\Ubuntu\\home\\user\\repo');
+    expect(wslDollar.normalizedProjectId).toBe('wsl:/ubuntu/home/user/repo');
   });
 });

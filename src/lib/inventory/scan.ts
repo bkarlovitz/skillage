@@ -35,6 +35,7 @@ export interface SelectedProjectContext {
   selectedPath: string;
   repoRootPath?: string;
   scanRootPath: string;
+  normalizedProjectId: string;
   displayName: string;
   activeProfile?: string;
   trustState: 'trusted' | 'untrusted' | 'unknown';

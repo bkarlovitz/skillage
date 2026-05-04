@@ -55,7 +55,7 @@ Demo selecting a project folder and seeing project-scoped resources, inherited g
   - Show clear states for no project selected, selected folder unavailable, no resources found, read errors, and git unavailable.
   - Validation: UI tests or fixture tests cover each state without falling back to demo data.
 
-- [ ] **Task 5.12**: Preserve Windows/WSL project selection behavior
+- [x] **Task 5.12**: Preserve Windows/WSL project selection behavior
   - Ensure Windows build project scans work for Windows-native paths and WSL UNC paths.
   - Normalize WSL project paths for identity while preserving original display paths.
   - Validation: Path/project tests cover `\\wsl.localhost` and `\\wsl$` selected project roots.

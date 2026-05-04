@@ -138,7 +138,7 @@ export async function resolveProjectContext(path: string): Promise<SelectedProje
   if (!trimmed) throw new Error('Enter a project folder path first.');
 
   if (isTauriRuntime()) {
-    return invoke<SelectedProjectContext>('resolve_project_context', { root: trimmed });
+    return normalizeProjectContext(await invoke<unknown>('resolve_project_context', { root: trimmed }));
   }
 
   if (import.meta.env.DEV) {

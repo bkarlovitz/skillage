@@ -1,4 +1,5 @@
 import type { SelectedProjectContext } from '../scan';
+import { normalizeComparableProjectPath } from './scope';
 
 export type ProjectGitRootStatus = 'found' | 'not-found' | 'git-unavailable';
 
@@ -37,6 +38,7 @@ export function createProjectContext(input: ProjectContextInput): SelectedProjec
     selectedPath,
     repoRootPath,
     scanRootPath,
+    normalizedProjectId: normalizeComparableProjectPath(scanRootPath),
     displayName: input.displayName?.trim() || displayNameForProjectPath(selectedPath),
     activeProfile: input.activeProfile,
     trustState: input.trustState ?? 'unknown',

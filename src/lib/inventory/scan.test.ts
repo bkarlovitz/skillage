@@ -11,6 +11,7 @@ describe('scan summary contract', () => {
         selectedPath: '/repo/skillage/apps/web',
         repoRootPath: '/repo/skillage',
         scanRootPath: '/repo/skillage',
+        normalizedProjectId: '/repo/skillage',
         displayName: 'skillage',
         activeProfile: 'default',
         trustState: 'unknown',
