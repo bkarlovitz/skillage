@@ -9,7 +9,7 @@ Demo a cross-client view that groups related capabilities, identifies duplicates
   - Require stronger evidence than shared name for identical or conflict labels.
   - Validation: Relationship tests cover each threshold and prove same-name-only does not become identical.
 
-- [ ] **Task 7.2**: Add capability grouping keys
+- [x] **Task 7.2**: Add capability grouping keys
   - Build grouping keys for MCP servers, skills, instructions, rules, hooks, plugins, sensitive stores, and profiles using type, normalized name, command/package/url hints, source path, and client evidence.
   - Validation: Tests cover same MCP name with different command, same command with different names, and same skill name in different clients.
 
