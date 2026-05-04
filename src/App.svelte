@@ -2,8 +2,6 @@
   import { onMount } from 'svelte';
   import { findCapabilityResourceById } from './lib/detail';
   import { fixtureScenarios, getFixtureScenario, resourcesFromFixtureScenario, type InventoryFixtureScenarioId } from './lib/inventory/fixtures';
-  import { capabilityResourcesFromSkillItems } from './lib/inventory/legacy';
-  import { buildLocalScanResult } from './lib/inventory/localScan';
   import type { ScanSummary } from './lib/inventory/scan';
   import { capabilityClients, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
   import { runtimeLabel, scanRoot, scanStandardLocations } from './lib/native';
@@ -179,23 +177,12 @@
   async function scanStandard() {
     scanStatus = 'Scanning standard local skill locations...';
     try {
-      const discovered = capabilityResourcesFromSkillItems(await scanStandardLocations());
-      const result = buildLocalScanResult({
-        scanId: 'local-standard-scan',
-        rootPath: 'standard locations',
-        rootLabel: 'Standard local locations',
-        scannerRule: 'standard-locations',
-        matchedPathPattern: 'known client homes and current working directory',
-        dataSourceLabel: 'Local scan: standard locations',
-        resources: discovered,
-        loadedStatus: `Loaded ${discovered.length} asset(s) from standard locations.`,
-        emptyStatus: 'No local standard-location capabilities found.'
-      });
-      activeScanSummary = result.summary;
-      dataSourceLabel = result.dataSourceLabel;
+      const summary = await scanStandardLocations();
+      activeScanSummary = summary;
+      dataSourceLabel = 'Local scan: standard locations';
       target = 'all';
-      setRows(result.resources);
-      scanStatus = result.statusText;
+      setRows(summary.resources);
+      scanStatus = summary.resources.length ? `Loaded ${summary.resources.length} asset(s) from standard locations.` : 'No local standard-location capabilities found.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Standard-location scan failed.';
     }
@@ -204,23 +191,12 @@
   async function scanNativeRoot() {
     scanStatus = 'Scanning selected root...';
     try {
-      const discovered = capabilityResourcesFromSkillItems(await scanRoot(scanRootPath.trim()));
-      const result = buildLocalScanResult({
-        scanId: 'local-root-scan',
-        rootPath: scanRootPath.trim(),
-        rootLabel: 'Selected scan root',
-        scannerRule: 'selected-root',
-        matchedPathPattern: scanRootPath.trim(),
-        dataSourceLabel: `Local scan: ${scanRootPath.trim()}`,
-        resources: discovered,
-        loadedStatus: `Loaded ${discovered.length} asset(s).`,
-        emptyStatus: 'No matching capabilities found in the selected root.'
-      });
-      activeScanSummary = result.summary;
-      dataSourceLabel = result.dataSourceLabel;
+      const summary = await scanRoot(scanRootPath.trim());
+      activeScanSummary = summary;
+      dataSourceLabel = `Local scan: ${scanRootPath.trim()}`;
       target = 'all';
-      setRows(result.resources);
-      scanStatus = result.statusText;
+      setRows(summary.resources);
+      scanStatus = summary.resources.length ? `Loaded ${summary.resources.length} asset(s).` : 'No matching capabilities found in the selected root.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Native scan failed.';
     }
