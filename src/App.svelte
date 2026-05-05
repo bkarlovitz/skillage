@@ -10,12 +10,11 @@
   import { insightCategories } from './lib/inventory/insights';
   import { buildProjectEffectiveResources, buildProjectInventoryResources } from './lib/inventory/project/effective';
   import { projectInventoryStates } from './lib/inventory/project/states';
-  import { safeDisplayPreviewText } from './lib/inventory/preview';
   import { relationshipLabels } from './lib/inventory/relationships';
   import { buildSafeResourceDetailPanels } from './lib/inventory/safeDetailPanels';
   import type { ScanSummary } from './lib/inventory/scan';
   import { sourceLocationForResource, unknownSourceLocation } from './lib/inventory/sourceClarity';
-  import { filterCapabilityResources } from './lib/inventory/tableModel';
+  import { filterCapabilityResources, type ResourceFocus } from './lib/inventory/tableModel';
   import { capabilityClients, capabilityResourceTypes, capabilityScopes, capabilityStatuses, type CapabilityClient, type CapabilityResource } from './lib/inventory/types';
   import { resolveProjectContext, runtimeLabel, scanRoot, scanStandardLocations, selectProjectFolder } from './lib/native';
   import { paginate, sortCapabilityResources, type SortDirection, type SortKey } from './lib/table';
@@ -24,6 +23,12 @@
   const targets: Array<'all' | CapabilityClient> = ['all', ...capabilityClients];
   const themeOptions: ThemePreference[] = ['system', 'light', 'dark'];
   const pageSizeOptions = [25, 50, 100];
+  const resourceFocusOptions: Array<{ id: ResourceFocus; label: string; description: string }> = [
+    { id: 'all', label: 'All', description: 'Every discovered resource' },
+    { id: 'skills', label: 'Skills', description: 'Skill packages and bundled skills' },
+    { id: 'mcp', label: 'MCP', description: 'Configured MCP servers' },
+    { id: 'review', label: 'Review', description: 'Warnings and needs-review items' }
+  ];
   type AppMode = 'machine' | 'project' | 'clients' | 'client-detail' | 'cross-client' | 'detail';
   const defaultFixtureScenarioId: InventoryFixtureScenarioId = 'full-machine';
   const defaultFixtureScenario = getFixtureScenario(defaultFixtureScenarioId);
@@ -36,6 +41,7 @@
   let dataSourceLabel = $state(`Fixture: ${defaultFixtureScenario.label}`);
   let query = $state('');
   let target = $state<'all' | CapabilityClient>('all');
+  let resourceFocus = $state<ResourceFocus>('all');
   let mode = $state<AppMode>('machine');
   let selectedClient = $state<CapabilityClient>('claude-code');
   let scanRootPath = $state('');
@@ -57,7 +63,7 @@
   let crossClientFilterRelationship = $state('all');
   const currentRuntime = runtimeLabel();
 
-  const filtered = $derived(filterCapabilityResources(items, { query, target, includeInternalArtifacts }));
+  const filtered = $derived(filterCapabilityResources(items, { query, target, includeInternalArtifacts, resourceFocus }));
 
   const sorted = $derived(sortCapabilityResources(filtered, sortKey, sortDirection));
   const pageResult = $derived(paginate(sorted, { page, pageSize }));
@@ -72,6 +78,30 @@
     counts[item.client] = (counts[item.client] ?? 0) + 1;
     return counts;
   }, {}));
+  const skillCount = $derived(items.filter((item) => item.resourceType === 'skill' && (includeInternalArtifacts || item.scope !== 'plugin-bundled' || (item.metadata.legacyScope !== 'cache' && item.metadata.legacyScope !== 'temporary'))).length);
+  const mcpCount = $derived(items.filter((item) => item.resourceType === 'mcp-server').length);
+  const reviewCount = $derived(items.filter((item) => item.warnings.length > 0 || item.status === 'needs-review' || item.statuses?.includes('needs-review') === true).length);
+  const resourceFocusTitle = $derived(resourceFocus === 'skills'
+    ? 'Skills'
+    : resourceFocus === 'mcp'
+      ? 'MCP servers'
+      : resourceFocus === 'review'
+        ? 'Needs review'
+        : 'Local capability inventory');
+  const resourceFocusDescription = $derived(resourceFocus === 'skills'
+    ? 'Skill packages and skill-like resources from the active fixture or local scan.'
+    : resourceFocus === 'mcp'
+      ? 'Configured MCP servers only. Passive inventory does not start or health-check them.'
+      : resourceFocus === 'review'
+        ? 'Resources with warnings or needs-review status, including secret, scope, runtime, and parse caveats.'
+        : 'Normalized across Claude Code, Claude Desktop, Codex, Cursor, Hermes, and OpenClaw.');
+  const resourceFocusEmptyCopy = $derived(resourceFocus === 'skills'
+    ? 'No skills found in the active data set. Scan standard locations or load a fixture with skills.'
+    : resourceFocus === 'mcp'
+      ? 'No MCP servers found in the active data set.'
+      : resourceFocus === 'review'
+        ? 'No warnings or needs-review resources match the current filters.'
+        : 'No matching capability resources. Clear search or switch source.');
   const projectRows = $derived(buildProjectInventoryResources(items));
   const projectSharedRows = $derived(projectRows.filter((item) => item.scope === 'project-shared'));
   const projectInheritedRows = $derived(projectRows.filter((item) => (item.statuses ?? [item.status]).includes('inherited') || item.metadata.inherited === true));
@@ -85,15 +115,11 @@
   const selectedClientDetail = $derived(clientDetailModels.find((detail) => detail.client === selectedClient) ?? clientDetailModels[0]);
   const clientSpecificSections = $derived(selectedClientDetail ? buildClientSpecificSections(selectedClientDetail) : []);
   const clientSpecificExplanations = $derived(selectedClientDetail ? buildClientSpecificExplanations(selectedClientDetail) : []);
-  const coreClientPanels = $derived(clientSummaries.map((summary) => {
-    const groups = Object.values(summary.resources.reduce<Record<string, { resourceType: string; rows: CapabilityResource[] }>>((accumulator, resource) => {
-      const group = accumulator[resource.resourceType] ?? { resourceType: resource.resourceType, rows: [] };
-      group.rows.push(resource);
-      accumulator[resource.resourceType] = group;
-      return accumulator;
-    }, {})).sort((a, b) => a.resourceType.localeCompare(b.resourceType));
-    return { ...summary, groups };
-  }));
+  const coreClientPanels = $derived(clientSummaries.map((summary) => ({
+    ...summary,
+    skillCount: summary.resources.filter((resource) => resource.resourceType === 'skill').length,
+    mcpCount: summary.resources.filter((resource) => resource.resourceType === 'mcp-server').length
+  })));
   const scannerProblemRows = $derived([
     ...activeScanSummary.readErrors.map((error) => ({ id: error.id, severity: 'error', label: 'Read error', message: error.message, path: error.path })),
     ...activeScanSummary.parseErrors.map((error) => ({ id: error.id, severity: 'error', label: 'Parse error', message: error.message, path: error.path })),
@@ -128,6 +154,15 @@
     mode = 'machine';
   }
 
+  function rowsForFilters(nextFocus = resourceFocus, nextTarget = target, nextQuery = query, nextItems = items): CapabilityResource[] {
+    return filterCapabilityResources(nextItems, {
+      query: nextQuery,
+      target: nextTarget,
+      includeInternalArtifacts,
+      resourceFocus: nextFocus
+    });
+  }
+
   function resetPageAndSelection(rows: CapabilityResource[] = sorted) {
     page = 1;
     if (!rows.some((item) => item.id === selectedId)) {
@@ -135,9 +170,16 @@
     }
   }
 
+  function setResourceFocus(nextFocus: ResourceFocus) {
+    resourceFocus = nextFocus;
+    mode = 'machine';
+    page = 1;
+    selectedId = rowsForFilters(nextFocus)[0]?.id ?? '';
+  }
+
   function changeTarget(nextTarget: 'all' | CapabilityClient) {
     target = nextTarget;
-    resetPageAndSelection(items.filter((item) => nextTarget === 'all' || item.client === nextTarget));
+    resetPageAndSelection(rowsForFilters(resourceFocus, nextTarget));
   }
 
   function updateQuery(value: string) {
@@ -153,13 +195,6 @@
   function ariaSort(key: SortKey): 'ascending' | 'descending' | 'none' {
     if (sortKey !== key) return 'none';
     return sortDirection === 'asc' ? 'ascending' : 'descending';
-  }
-
-  function previewSnippet(item: CapabilityResource): string {
-    const text = safeDisplayPreviewText(item);
-    if (!text) return '';
-    const compact = text.replace(/\s+/g, ' ').trim();
-    return compact.length > 140 ? `${compact.slice(0, 137)}...` : compact;
   }
 
   function resourceSourcePath(item: CapabilityResource): string {
@@ -209,7 +244,7 @@
 
   function setRows(nextItems: CapabilityResource[]) {
     items = nextItems;
-    selectedId = nextItems[0]?.id ?? '';
+    selectedId = rowsForFilters(resourceFocus, 'all', '', nextItems)[0]?.id ?? nextItems[0]?.id ?? '';
     page = 1;
   }
 
@@ -219,6 +254,7 @@
     activeScanSummary = scenario.summary;
     dataSourceLabel = `Fixture: ${scenario.label}`;
     target = 'all';
+    query = '';
     setRows(resourcesFromFixtureScenario(scenario.id));
     scanStatus = `${scenario.label} fixture loaded. No local scan ran.`;
   }
@@ -230,8 +266,9 @@
       activeScanSummary = summary;
       dataSourceLabel = 'Local scan: standard locations';
       target = 'all';
+      query = '';
       setRows(summary.resources);
-      scanStatus = summary.resources.length ? `Loaded ${summary.resources.length} asset(s) from standard locations.` : 'No local standard-location capabilities found.';
+      scanStatus = summary.resources.length ? `Loaded ${summary.resources.length} resource(s) from standard locations.` : 'No local standard-location capabilities found.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Standard-location scan failed.';
     }
@@ -244,8 +281,9 @@
       activeScanSummary = summary;
       dataSourceLabel = `Local scan: ${scanRootPath.trim()}`;
       target = 'all';
+      query = '';
       setRows(summary.resources);
-      scanStatus = summary.resources.length ? `Loaded ${summary.resources.length} asset(s).` : 'No matching capabilities found in the selected root.';
+      scanStatus = summary.resources.length ? `Loaded ${summary.resources.length} resource(s).` : 'No matching capabilities found in the selected root.';
     } catch (error) {
       scanStatus = error instanceof Error ? error.message : 'Native scan failed.';
     }
@@ -302,7 +340,8 @@
     </div>
 
     <nav class="tabs" aria-label="Primary">
-      <button class:active={mode === 'machine' || mode === 'detail'} onclick={() => (mode = 'machine')}>Machine Inventory</button>
+      <button class:active={(mode === 'machine' || mode === 'detail') && resourceFocus === 'all'} onclick={() => setResourceFocus('all')}>Inventory</button>
+      <button class:active={(mode === 'machine' || mode === 'detail') && resourceFocus === 'skills'} onclick={() => setResourceFocus('skills')}>Skills</button>
       <button class:active={mode === 'project'} onclick={() => (mode = 'project')}>Project Inventory</button>
       <button class:active={mode === 'clients'} onclick={() => (mode = 'clients')}>Clients</button>
       <button class:active={mode === 'cross-client'} onclick={() => (mode = 'cross-client')}>Cross-Client</button>
@@ -311,7 +350,7 @@
     <section class="sidebar-section" aria-labelledby="sources-heading">
       <div class="section-heading" id="sources-heading">Sources</div>
       <button class:active={target === 'all'} class="source-row" onclick={() => changeTarget('all')}>
-        <span>All assets</span><strong>{items.length}</strong>
+        <span>All resources</span><strong>{items.length}</strong>
       </button>
       {#each targets.filter((option) => option !== 'all') as option}
         <button class:active={target === option} class="source-row" onclick={() => changeTarget(option)}>
@@ -349,9 +388,9 @@
     {#if mode === 'machine'}
       <section class="topbar">
         <div>
-          <p class="eyebrow">Machine Inventory</p>
-          <h2>Local capability inventory</h2>
-          <p>Normalized across Claude Code, Claude Desktop, Codex, Cursor, Hermes, and OpenClaw.</p>
+          <p class="eyebrow">{resourceFocus === 'all' ? 'Inventory' : 'Focused inventory'}</p>
+          <h2>{resourceFocusTitle}</h2>
+          <p>{resourceFocusDescription}</p>
         </div>
         <div class="topbar-actions">
           <label class="field demo-scenario-field">
@@ -369,101 +408,86 @@
 
       <p class="status-line data-source-line"><strong>{sourceModeLabel}</strong><span>{dataSourceLabel}</span></p>
 
-      <section class="core-client-grid" aria-label="Core client inventory">
-        {#each coreClientPanels as summary}
-          <article class="core-client-card">
-            <div class="client-card-header">
-              <h3>{summary.client}</h3>
-              <span class:ok-status={summary.status === 'configured' || summary.status === 'installed'} class:partial-status={summary.status === 'partially-configured'} class="client-status">{summary.status}</span>
-            </div>
-            <dl class="meta compact-meta core-meta">
-              <div><dt>Resources</dt><dd>{summary.resourceCount}</dd></div>
-              <div><dt>Warnings</dt><dd>{summary.warningCount}</dd></div>
-              <div><dt>Profiles</dt><dd>{summary.profileCount}</dd></div>
-              <div><dt>Stores</dt><dd>{summary.sensitiveStoreCount + summary.logSessionStoreCount}</dd></div>
-              <div><dt>Readable</dt><dd>{summary.readableCount}</dd></div>
-              <div><dt>Parsed</dt><dd>{summary.parseableCount}</dd></div>
-            </dl>
-            <div class="core-resource-groups">
-              {#each summary.groups as group}
-                <section class="core-resource-group" aria-label={`${summary.client} ${group.resourceType}`}>
-                  <div class="core-group-heading">
-                    <strong>{group.resourceType}</strong>
-                    <span>{group.rows.length}</span>
-                  </div>
-                  {#each group.rows.slice(0, 3) as item (item.id)}
-                    <button class="core-resource-row" onclick={() => selectItem(item.id)}>
-                      <span>
-                        <strong>{item.name}</strong>
-                        <small>{item.scope} · {item.status} · {resourceSourcePath(item)}</small>
-                        {#if previewSnippet(item)}<code>{previewSnippet(item)}</code>{/if}
-                      </span>
-                      {#if item.warnings.length}
-                        <span class="issue-badge table-issue-badge">{item.warnings.length}</span>
-                      {:else}
-                        <span class="zero-issues">0</span>
-                      {/if}
-                    </button>
-                  {/each}
-                </section>
-              {:else}
-                <div class="empty small-empty">No resources for this client in the active data set.</div>
-              {/each}
-            </div>
-            {#if summary.caveats.length}
-              <ul class="core-caveats">
-                {#each summary.caveats as caveat}
-                  <li>{caveat}</li>
-                {/each}
-              </ul>
-            {/if}
-          </article>
+      <section class="focus-strip" aria-label="Inventory focus">
+        {#each resourceFocusOptions as option}
+          <button class:active={resourceFocus === option.id} onclick={() => setResourceFocus(option.id)}>
+            <span>
+              <strong>{option.label}</strong>
+              <small>{option.description}</small>
+            </span>
+            <b>{option.id === 'skills' ? skillCount : option.id === 'mcp' ? mcpCount : option.id === 'review' ? reviewCount : items.length}</b>
+          </button>
         {/each}
       </section>
 
-      <section class="scanner-metadata-grid" aria-label="Scanner metadata">
-        <article class="metadata-panel">
-          <h3>Scan roots</h3>
-          <div class="metadata-list">
-            {#each activeScanSummary.scanRoots as root}
-              <div class="metadata-row">
-                <span><strong>{root.label}</strong><small>{root.path}</small></span>
-                <span class="badge">{root.status}</span>
+      {#if resourceFocus === 'all'}
+        <section class="core-client-grid" aria-label="Core client inventory">
+          {#each coreClientPanels as summary}
+            <article class="core-client-card">
+              <div class="client-card-header">
+                <h3>{summary.client}</h3>
+                <div class="client-card-actions">
+                  <span class:ok-status={summary.status === 'configured' || summary.status === 'installed'} class:partial-status={summary.status === 'partially-configured'} class="client-status">{summary.status}</span>
+                  <button class="button ghost compact" onclick={() => selectClientDetail(summary.client)}>Open</button>
+                </div>
               </div>
-            {:else}
-              <div class="empty small-empty">No scan roots recorded for this data set.</div>
-            {/each}
-          </div>
-        </article>
+              <dl class="meta compact-meta core-meta">
+                <div><dt>Resources</dt><dd>{summary.resourceCount}</dd></div>
+                <div><dt>Skills</dt><dd>{summary.skillCount}</dd></div>
+                <div><dt>MCP</dt><dd>{summary.mcpCount}</dd></div>
+                <div><dt>Warnings</dt><dd>{summary.warningCount}</dd></div>
+              </dl>
+            </article>
+          {/each}
+        </section>
+      {/if}
 
-        <article class="metadata-panel">
-          <h3>Known locations</h3>
-          <div class="metadata-list">
-            {#each activeScanSummary.knownClientLocations.slice(0, 8) as location}
-              <div class="metadata-row">
-                <span><strong>{location.client}</strong><small>{location.path ?? location.label}</small></span>
-                <span class:ok-status={location.exists} class="client-status">{location.exists ? 'found' : 'not found'}</span>
-              </div>
-            {:else}
-              <div class="empty small-empty">No known client locations recorded yet.</div>
-            {/each}
-          </div>
-        </article>
+      <details class="scanner-disclosure">
+        <summary>Scanner details</summary>
+        <section class="scanner-metadata-grid" aria-label="Scanner metadata">
+          <article class="metadata-panel">
+            <h3>Scan roots</h3>
+            <div class="metadata-list">
+              {#each activeScanSummary.scanRoots as root}
+                <div class="metadata-row">
+                  <span><strong>{root.label}</strong><small>{root.path}</small></span>
+                  <span class="badge">{root.status}</span>
+                </div>
+              {:else}
+                <div class="empty small-empty">No scan roots recorded for this data set.</div>
+              {/each}
+            </div>
+          </article>
 
-        <article class="metadata-panel">
-          <h3>Scanner records</h3>
-          <div class="metadata-list">
-            {#each scannerProblemRows.slice(0, 8) as problem}
-              <div class="metadata-row">
-                <span><strong>{problem.label}</strong><small>{problem.message}</small>{#if problem.path}<code>{problem.path}</code>{/if}</span>
-                <span class="badge">{problem.severity}</span>
-              </div>
-            {:else}
-              <div class="empty small-empty">No scanner errors or warnings in this data set.</div>
-            {/each}
-          </div>
-        </article>
-      </section>
+          <article class="metadata-panel">
+            <h3>Known locations</h3>
+            <div class="metadata-list">
+              {#each activeScanSummary.knownClientLocations.slice(0, 8) as location}
+                <div class="metadata-row">
+                  <span><strong>{location.client}</strong><small>{location.path ?? location.label}</small></span>
+                  <span class:ok-status={location.exists} class="client-status">{location.exists ? 'found' : 'not found'}</span>
+                </div>
+              {:else}
+                <div class="empty small-empty">No known client locations recorded yet.</div>
+              {/each}
+            </div>
+          </article>
+
+          <article class="metadata-panel">
+            <h3>Scanner records</h3>
+            <div class="metadata-list">
+              {#each scannerProblemRows.slice(0, 8) as problem}
+                <div class="metadata-row">
+                  <span><strong>{problem.label}</strong><small>{problem.message}</small>{#if problem.path}<code>{problem.path}</code>{/if}</span>
+                  <span class="badge">{problem.severity}</span>
+                </div>
+              {:else}
+                <div class="empty small-empty">No scanner errors or warnings in this data set.</div>
+              {/each}
+            </div>
+          </article>
+        </section>
+      </details>
 
       {#if machineEmptyState && items.length === 0}
         <section class="empty local-empty-state">
@@ -499,7 +523,7 @@
         <section class="table-panel" aria-label="Skill inventory">
           <div class="table-toolbar">
             <div>
-              <strong>{pageResult.total} asset{pageResult.total === 1 ? '' : 's'}</strong>
+              <strong>{resourceFocusTitle}</strong>
               <span>Showing {pageResult.start}–{pageResult.end} of {pageResult.total}</span>
             </div>
             <label class="page-size-control">
@@ -567,7 +591,7 @@
                   </tr>
                 {:else}
                   <tr>
-                    <td colspan="8"><div class="empty table-empty">No matching capability resources. Clear search or switch source.</div></td>
+                    <td colspan="8"><div class="empty table-empty">{resourceFocusEmptyCopy}</div></td>
                   </tr>
                 {/each}
               </tbody>
@@ -1121,7 +1145,7 @@
         {:else}
           <div class="empty detail-empty">
             <strong>Resource not found.</strong>
-            <span>The selected resource may have disappeared after a scan. Return to the inventory and choose another asset.</span>
+            <span>The selected resource may have disappeared after a scan. Return to the inventory and choose another resource.</span>
           </div>
         {/if}
       </section>

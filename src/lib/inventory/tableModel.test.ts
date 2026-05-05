@@ -84,4 +84,14 @@ describe('inventory table model', () => {
     expect(filterCapabilityResources(resources, { query: '', target: 'all', includeInternalArtifacts: false })).toHaveLength(1);
     expect(filterCapabilityResources(resources, { query: '', target: 'all', includeInternalArtifacts: true })).toHaveLength(2);
   });
+
+  it('filters to skills without requiring users to search for a type name', () => {
+    const resources = [
+      resource(1, { resourceType: 'skill', name: 'reviewer' }),
+      resource(2, { resourceType: 'mcp-server', name: 'github' }),
+      resource(3, { resourceType: 'config-file', name: 'settings' })
+    ];
+
+    expect(filterCapabilityResources(resources, { query: '', target: 'all', includeInternalArtifacts: false, resourceFocus: 'skills' }).map((item) => item.name)).toEqual(['reviewer']);
+  });
 });

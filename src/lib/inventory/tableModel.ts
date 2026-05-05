@@ -1,9 +1,12 @@
 import type { CapabilityClient, CapabilityResource } from './types';
 
+export type ResourceFocus = 'all' | 'skills' | 'mcp' | 'review';
+
 export interface ResourceFilterState {
   query: string;
   target: 'all' | CapabilityClient;
   includeInternalArtifacts: boolean;
+  resourceFocus?: ResourceFocus;
 }
 
 function metadataText(metadata: CapabilityResource['metadata']): string {
@@ -40,10 +43,24 @@ export function isInternalArtifact(item: CapabilityResource): boolean {
     && (item.metadata.legacyScope === 'cache' || item.metadata.legacyScope === 'temporary');
 }
 
+function matchesResourceFocus(item: CapabilityResource, focus: ResourceFocus = 'all'): boolean {
+  switch (focus) {
+    case 'skills':
+      return item.resourceType === 'skill';
+    case 'mcp':
+      return item.resourceType === 'mcp-server';
+    case 'review':
+      return item.warnings.length > 0 || item.status === 'needs-review' || item.statuses?.includes('needs-review') === true;
+    case 'all':
+      return true;
+  }
+}
+
 export function filterCapabilityResources(items: CapabilityResource[], state: ResourceFilterState): CapabilityResource[] {
   const query = state.query.toLowerCase();
 
   return items.filter((item) => (state.target === 'all' || item.client === state.target)
+    && matchesResourceFocus(item, state.resourceFocus)
     && (state.includeInternalArtifacts || !isInternalArtifact(item))
     && resourceSearchText(item).includes(query));
 }
